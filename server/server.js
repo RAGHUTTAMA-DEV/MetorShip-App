@@ -1,11 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import http from "http";
 import cors from "cors";
-import dotenv from "dotenv";
 import { Server } from "socket.io";
-import { connectDB } from "./config";
-dotenv.config();
-
+import { connectDB } from "./config.js";
+import authRoutes from "./routes/Auth.js"
+import bookingRoutes from "./routes/Booking.js"
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -45,6 +47,9 @@ io.on("connection", (socket) => {
 app.get("/", (req, res) => {
     res.sendFile("index.html", { root: "./" });
 });
+
+app.use("/api/auth", authRoutes);
+app.use("/api/booking", bookingRoutes);
 
 const PORT = process.env.PORT || 3000;
 
