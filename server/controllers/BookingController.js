@@ -1,4 +1,5 @@
 import BookingModel from "../models/BookingModel.js";
+import RoomModel from "../models/RoomModel.js";
 import UserModel from "../models/UserModel.js";
 import mongoose from "mongoose";
 
@@ -100,6 +101,26 @@ export async function updateBookingStatus(req, res) {
         // Update status
         booking.status = status;
         await booking.save();
+
+        // If booking is confirmed, create a room
+        if (status === "confirmed") {
+            const room = await RoomModel.create({
+                bookingId: booking._id,
+                mentor: booking.mentor,
+                learner: booking.learner,
+                sessionLink: `https://meet.google.com/${Math.random().toString(36).substring(7)}`
+            });
+
+            // Update booking with room details
+            booking.sessionLink = room.sessionLink;
+            await booking.save();
+
+            return res.status(200).json({
+                message: "Booking confirmed and room created successfully",
+                booking,
+                room
+            });
+        }
 
         return res.status(200).json({
             message: "Booking status updated successfully",

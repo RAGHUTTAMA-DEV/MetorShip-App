@@ -8,6 +8,7 @@ import { Server } from "socket.io";
 import { connectDB } from "./config.js";
 import authRoutes from "./routes/Auth.js"
 import bookingRoutes from "./routes/Booking.js"
+import roomRoutes from "./routes/Room.js"
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -33,6 +34,20 @@ io.on("connection", (socket) => {
     // Send welcome message
     socket.emit("message", "Welcome to the server!");
 
+    socket.on("join-room",(roomId)=>{
+        console.log("Client joined room:", socket.id);
+        socket.join(roomId);
+        console.log(`📦 ${socket.id} joined room ${roomId}`);
+        socket.to(roomId).emit('user-joined', socket.id);
+
+    })
+    socket.on('send-message', ({ roomId, message }) => {
+        io.to(roomId).emit('receive-message', {
+          sender: socket.id,
+          message,
+        });
+      });
+
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
     });
@@ -50,6 +65,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/booking", bookingRoutes);
+app.use("/api/rooms", roomRoutes);
 
 const PORT = process.env.PORT || 3000;
 
