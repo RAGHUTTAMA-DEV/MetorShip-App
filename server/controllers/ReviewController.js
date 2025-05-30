@@ -1,27 +1,86 @@
-import ReviewModel from "../models/ReviewModel";
+import ReviewModel from "../models/ReviewModel.js";
+import UserModel from "../models/UserModel.js";
 
-export async function createReview(req,res){
-    try{
-       const {bookingId,review,rating,mentor,reviewedBy} = req.body
-       const ismentor = await User.findById(mentor);
-       if(!ismentor) return res.status(404).json({message: "Mentor not found"})
+export async function createReview(req, res) {
+    try {
+        const { bookingId, review, rating, mentor } = req.body;
+        const reviewedBy = req.user._id; // Get from authenticated user
 
-       const isreviewed = await User.findById(reviewedBy);
-       if(!isreviewed) return res.status(404).json({message: "User not found"})
+        if (!bookingId || !review || !rating || !mentor) {
+            return res.status(400).json({
+                message: "Missing required fields: bookingId, review, rating, and mentor are required"
+            });
+        }
 
-        await ReviewModel.create({bookingId,review,rating,mentor,reviewedBy});
+        const isMentor = await UserModel.findById(mentor);
+        if (!isMentor) {
+            return res.status(404).json({ message: "Mentor not found" });
+        }
 
-        res.status(200).json({message: "Review created successfully"})
-    }catch(err){
-        res.status(500).json({message: err.message})
+        const isReviewed = await UserModel.findById(reviewedBy);
+        if (!isReviewed) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Check if user has already reviewed this mentor
+        const existingReview = await ReviewModel.findOne({
+            mentor,
+            reviewedBy
+        });
+
+        if (existingReview) {
+            return res.status(400).json({
+                message: "You have already reviewed this mentor"
+            });
+        }
+
+        const newReview = await ReviewModel.create({
+            bookingId,
+            review,
+            rating,
+            mentor,
+            reviewedBy
+        });
+
+        res.status(201).json({
+            message: "Review created successfully",
+            review: newReview
+        });
+    } catch (err) {
+        console.error("Create review error:", err);
+        res.status(500).json({
+            message: "Error creating review",
+            error: err.message
+        });
     }
 }
 
-export async function getReview(req,res){
-    try{
-        const reviews = await ReviewModel.find().populate("bookingId").populate("mentor").populate("reviewedBy");
-        res.status(200).json(reviews);
-    }catch(err){
-        res.status(500).json({message: err.message});
+export async function getReview(req, res) {
+    try {
+        const { id } = req.params; // mentor id
+
+        if (!id) {
+            return res.status(400).json({
+                message: "Mentor ID is required"
+            });
+        }
+
+        const reviews = await ReviewModel.find({ mentor: id })
+            .populate("bookingId")
+            .populate("mentor", "username email")
+            .populate("reviewedBy", "username email")
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            message: "Reviews fetched successfully",
+            count: reviews.length,
+            reviews
+        });
+    } catch (err) {
+        console.error("Get reviews error:", err);
+        res.status(500).json({
+            message: "Error fetching reviews",
+            error: err.message
+        });
     }
 }
