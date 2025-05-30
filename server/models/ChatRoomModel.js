@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 
 const chatRoomSchema = new mongoose.Schema({
+    roomId: {
+        type: String,
+        required: true,
+        unique: true
+    },
     participants: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -12,14 +17,23 @@ const chatRoomSchema = new mongoose.Schema({
             ref: "User",
             required: true
         },
-        message: {
+        content: {
             type: String,
             required: true
         },
-        createdAt: {
+        type: {
+            type: String,
+            enum: ['text', 'image', 'file'],
+            default: 'text'
+        },
+        timestamp: {
             type: Date,
             default: Date.now
-        }
+        },
+        readBy: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }]
     }],
     createdAt: {
         type: Date,

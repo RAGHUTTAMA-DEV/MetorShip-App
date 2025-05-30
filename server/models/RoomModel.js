@@ -22,6 +22,10 @@ const roomSchema = new mongoose.Schema({
         default: 'active'
     },
     sessionLink: String,
+    chatRoomId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ChatRoom'
+    },
     startedAt: {
         type: Date,
         default: Date.now

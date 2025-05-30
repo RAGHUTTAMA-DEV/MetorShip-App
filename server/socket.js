@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import ChatRoomModel from "./models/ChatRoomModel.js";
+import RoomModel from "./models/RoomModel.js";
 
 export function setupSocket(server) {
     const io = new Server(server, {
@@ -10,7 +11,6 @@ export function setupSocket(server) {
         }
     });
 
-    // Middleware to authenticate socket connections
     io.use((socket, next) => {
         const token = socket.handshake.auth.token;
         if (!token) {
@@ -32,22 +32,49 @@ export function setupSocket(server) {
         // Join room
         socket.on("room:join", async (roomId) => {
             try {
+                const room = await RoomModel.findById(roomId);
+                if (!room) {
+                    throw new Error("Room not found");
+                }
+
+                // Check if user is authorized to join this room
+                if (room.mentor.toString() !== socket.user._id && room.learner.toString() !== socket.user._id) {
+                    throw new Error("Unauthorized to join this room");
+                }
+
                 // Join socket room
                 socket.join(roomId);
                 console.log(`User ${socket.user.username} joined room ${roomId}`);
 
-                // Notify others in the room
+                // Create or get chat room
+                let chatRoom;
+                if (room.chatRoomId) {
+                    chatRoom = await ChatRoomModel.findById(room.chatRoomId);
+                }
+
+                if (!chatRoom) {
+                    chatRoom = await ChatRoomModel.create({
+                        roomId,
+                        participants: [room.mentor, room.learner],
+                        messages: []
+                    });
+                    
+                    // Update room with chat room ID
+                    room.chatRoomId = chatRoom._id;
+                    await room.save();
+                }
+
                 socket.to(roomId).emit("room:userJoined", {
                     username: socket.user.username,
                     userId: socket.user._id
                 });
 
                 // Get chat history
-                const chatRoom = await ChatRoomModel.findOne({ roomId })
+                const populatedChatRoom = await ChatRoomModel.findById(chatRoom._id)
                     .populate('messages.sender', 'username');
                 
-                if (chatRoom) {
-                    socket.emit("chat:history", chatRoom.messages);
+                if (populatedChatRoom) {
+                    socket.emit("chat:history", populatedChatRoom.messages);
                 }
             } catch (err) {
                 console.error("Room join error:", err);
@@ -60,6 +87,12 @@ export function setupSocket(server) {
             try {
                 const { roomId, content, type = 'text' } = data;
                 
+                // Find the room and its chat room
+                const room = await RoomModel.findById(roomId);
+                if (!room || !room.chatRoomId) {
+                    throw new Error("Room or chat room not found");
+                }
+
                 // Create new message
                 const message = {
                     sender: socket.user._id,
@@ -69,8 +102,8 @@ export function setupSocket(server) {
                 };
 
                 // Update chat room
-                const chatRoom = await ChatRoomModel.findOneAndUpdate(
-                    { roomId },
+                const chatRoom = await ChatRoomModel.findByIdAndUpdate(
+                    room.chatRoomId,
                     { $push: { messages: message } },
                     { new: true }
                 ).populate('messages.sender', 'username');
@@ -91,14 +124,19 @@ export function setupSocket(server) {
             }
         });
 
-        // Mark messages as read
         socket.on("chat:markRead", async (data) => {
             try {
                 const { roomId, messageIds } = data;
                 
+                // Find the room and its chat room
+                const room = await RoomModel.findById(roomId);
+                if (!room || !room.chatRoomId) {
+                    throw new Error("Room or chat room not found");
+                }
+
                 await ChatRoomModel.updateMany(
                     { 
-                        roomId,
+                        _id: room.chatRoomId,
                         'messages._id': { $in: messageIds }
                     },
                     { 

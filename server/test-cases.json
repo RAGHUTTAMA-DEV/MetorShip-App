@@ -1,0 +1,169 @@
+{
+    "testCases": {
+        "1. Create Booking": {
+            "endpoint": "POST /api/booking",
+            "request": {
+                "learner": "learner_user_id",
+                "mentor": "mentor_user_id",
+                "date": "2024-03-20",
+                "slot": "10:00 AM"
+            },
+            "expectedResponse": {
+                "status": "requested",
+                "learner": "learner_user_id",
+                "mentor": "mentor_user_id",
+                "date": "2024-03-20",
+                "slot": "10:00 AM"
+            }
+        },
+        "2. Accept Booking": {
+            "endpoint": "PUT /api/booking/:bookingId/accept",
+            "request": {
+                "bookingId": "booking_id_from_step_1"
+            },
+            "expectedResponse": {
+                "status": "confirmed",
+                "sessionLink": "https://meet.google.com/xyz-abc-def"
+            }
+        },
+        "3. Create Room": {
+            "endpoint": "POST /api/rooms",
+            "request": {
+                "bookingId": "booking_id_from_step_1",
+                "mentor": "mentor_user_id",
+                "learner": "learner_user_id",
+                "sessionLink": "https://meet.google.com/xyz-abc-def"
+            },
+            "expectedResponse": {
+                "status": "active",
+                "bookingId": "booking_id_from_step_1",
+                "mentor": "mentor_user_id",
+                "learner": "learner_user_id",
+                "sessionLink": "https://meet.google.com/xyz-abc-def"
+            }
+        },
+        "4. Join Room (Mentor)": {
+            "endpoint": "Socket Event: room:join",
+            "request": {
+                "roomId": "room_id_from_step_3",
+                "token": "mentor_jwt_token"
+            },
+            "expectedResponse": {
+                "event": "room:userJoined",
+                "data": {
+                    "username": "mentor_username",
+                    "userId": "mentor_user_id"
+                }
+            }
+        },
+        "5. Join Room (Learner)": {
+            "endpoint": "Socket Event: room:join",
+            "request": {
+                "roomId": "room_id_from_step_3",
+                "token": "learner_jwt_token"
+            },
+            "expectedResponse": {
+                "event": "room:userJoined",
+                "data": {
+                    "username": "learner_username",
+                    "userId": "learner_user_id"
+                }
+            }
+        },
+        "6. Send Message (Mentor)": {
+            "endpoint": "Socket Event: chat:message",
+            "request": {
+                "roomId": "room_id_from_step_3",
+                "content": "Hello! Welcome to our session.",
+                "type": "text"
+            },
+            "expectedResponse": {
+                "event": "chat:newMessage",
+                "data": {
+                    "sender": {
+                        "_id": "mentor_user_id",
+                        "username": "mentor_username"
+                    },
+                    "content": "Hello! Welcome to our session.",
+                    "type": "text",
+                    "timestamp": "2024-03-20T10:00:00.000Z"
+                }
+            }
+        },
+        "7. Send Message (Learner)": {
+            "endpoint": "Socket Event: chat:message",
+            "request": {
+                "roomId": "room_id_from_step_3",
+                "content": "Thank you! I'm excited to learn.",
+                "type": "text"
+            },
+            "expectedResponse": {
+                "event": "chat:newMessage",
+                "data": {
+                    "sender": {
+                        "_id": "learner_user_id",
+                        "username": "learner_username"
+                    },
+                    "content": "Thank you! I'm excited to learn.",
+                    "type": "text",
+                    "timestamp": "2024-03-20T10:00:05.000Z"
+                }
+            }
+        },
+        "8. Mark Messages as Read": {
+            "endpoint": "Socket Event: chat:markRead",
+            "request": {
+                "roomId": "room_id_from_step_3",
+                "messageIds": ["message_id_1", "message_id_2"]
+            },
+            "expectedResponse": {
+                "event": "chat:messagesRead",
+                "data": {
+                    "userId": "learner_user_id",
+                    "messageIds": ["message_id_1", "message_id_2"]
+                }
+            }
+        },
+        "9. End Session": {
+            "endpoint": "PUT /api/rooms/:roomId/end",
+            "request": {
+                "roomId": "room_id_from_step_3"
+            },
+            "expectedResponse": {
+                "status": "ended",
+                "endedAt": "2024-03-20T11:00:00.000Z"
+            }
+        }
+    },
+    "testData": {
+        "users": {
+            "mentor": {
+                "username": "mentor_username",
+                "email": "mentor@example.com",
+                "password": "mentor_password",
+                "role": "mentor"
+            },
+            "learner": {
+                "username": "learner_username",
+                "email": "learner@example.com",
+                "password": "learner_password",
+                "role": "user"
+            }
+        },
+        "tokens": {
+            "mentor": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "learner": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        }
+    },
+    "instructions": {
+        "1": "First create a booking request from learner to mentor",
+        "2": "Mentor accepts the booking request",
+        "3": "System creates a room for the session",
+        "4": "Mentor joins the room using socket connection",
+        "5": "Learner joins the room using socket connection",
+        "6": "Mentor sends a welcome message",
+        "7": "Learner responds to the message",
+        "8": "Messages are marked as read",
+        "9": "Session is ended after completion"
+    }
+} 

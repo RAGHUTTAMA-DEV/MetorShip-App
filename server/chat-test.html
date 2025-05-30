@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socket.IO Test</title>
+    <title>Chat Test</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
@@ -14,14 +14,13 @@
             background-color: #f5f5f5;
         }
         #messageContainer {
-            height: 300px;
+            height: 400px;
             border: 1px solid #ccc;
             margin: 10px 0;
             padding: 10px;
             overflow-y: auto;
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .message {
             margin: 5px 0;
@@ -47,11 +46,11 @@
         }
         .controls {
             display: flex;
+            flex-direction: column;
             gap: 10px;
             margin: 10px 0;
         }
         input {
-            flex: 1;
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -91,46 +90,74 @@
     </style>
 </head>
 <body>
-    <h1>Socket.IO Test</h1>
+    <h1>Chat Test</h1>
     <div id="connectionStatus" class="disconnected">Disconnected</div>
-    <div id="messageContainer"></div>
+    
     <div class="controls">
-        <input type="text" id="messageInput" placeholder="Type your message...">
-        <button onclick="sendMessage()" id="sendButton" disabled>Send</button>
+        <input type="text" id="tokenInput" placeholder="Enter JWT token">
         <button onclick="connect()" id="connectButton">Connect</button>
         <button onclick="disconnect()" id="disconnectButton" disabled>Disconnect</button>
     </div>
 
+    <div class="controls">
+        <input type="text" id="roomIdInput" placeholder="Enter room ID">
+        <button onclick="joinRoom()" id="joinRoomButton" disabled>Join Room</button>
+        <button onclick="leaveRoom()" id="leaveRoomButton" disabled>Leave Room</button>
+    </div>
+
+    <div id="messageContainer"></div>
+    
+    <div class="controls">
+        <input type="text" id="messageInput" placeholder="Type your message...">
+        <button onclick="sendMessage()" id="sendButton" disabled>Send Message</button>
+    </div>
+
     <script>
         let socket;
+        let currentRoomId = null;
         const messageContainer = document.getElementById('messageContainer');
         const messageInput = document.getElementById('messageInput');
         const statusDiv = document.getElementById('connectionStatus');
-        const sendButton = document.getElementById('sendButton');
+        const tokenInput = document.getElementById('tokenInput');
+        const roomIdInput = document.getElementById('roomIdInput');
+
+        // Button references
         const connectButton = document.getElementById('connectButton');
         const disconnectButton = document.getElementById('disconnectButton');
+        const joinRoomButton = document.getElementById('joinRoomButton');
+        const leaveRoomButton = document.getElementById('leaveRoomButton');
+        const sendButton = document.getElementById('sendButton');
 
         function updateConnectionStatus(connected) {
             if (connected) {
                 statusDiv.textContent = 'Connected';
                 statusDiv.className = 'connected';
-                sendButton.disabled = false;
                 connectButton.disabled = true;
                 disconnectButton.disabled = false;
+                joinRoomButton.disabled = false;
             } else {
                 statusDiv.textContent = 'Disconnected';
                 statusDiv.className = 'disconnected';
-                sendButton.disabled = true;
                 connectButton.disabled = false;
                 disconnectButton.disabled = true;
+                joinRoomButton.disabled = true;
+                leaveRoomButton.disabled = true;
+                sendButton.disabled = true;
+                currentRoomId = null;
             }
         }
 
         function connect() {
+            const token = tokenInput.value.trim();
+            if (!token) {
+                addMessage('System', 'Please enter a JWT token', 'error');
+                return;
+            }
+
             // Connect to Socket.IO server
             socket = io('http://localhost:3000', {
-                transports: ['websocket'],
-                path: '/socket.io/'
+                auth: { token },
+                transports: ['websocket']
             });
 
             socket.on('connect', () => {
@@ -145,27 +172,79 @@
 
             socket.on('connect_error', (error) => {
                 addMessage('System', 'Error: ' + error.message, 'error');
+                updateConnectionStatus(false);
             });
 
-            socket.on('message', (data) => {
-                addMessage('Server', data, 'received');
+            socket.on('room:userJoined', (data) => {
+                addMessage('System', `${data.username} joined the room`, 'status');
+            });
+
+            socket.on('room:userLeft', (data) => {
+                addMessage('System', `${data.username} left the room`, 'status');
+            });
+
+            socket.on('chat:newMessage', (data) => {
+                addMessage(data.sender.username, data.content, 'received');
+            });
+
+            socket.on('chat:history', (messages) => {
+                messages.forEach(msg => {
+                    addMessage(msg.sender.username, msg.content, 'received');
+                });
+            });
+
+            socket.on('error', (error) => {
+                addMessage('System', 'Error: ' + error, 'error');
             });
         }
 
         function disconnect() {
             if (socket) {
+                if (currentRoomId) {
+                    leaveRoom();
+                }
                 socket.disconnect();
             }
         }
 
+        function joinRoom() {
+            const roomId = roomIdInput.value.trim();
+            if (!roomId) {
+                addMessage('System', 'Please enter a room ID', 'error');
+                return;
+            }
+
+            socket.emit('room:join', roomId);
+            currentRoomId = roomId;
+            joinRoomButton.disabled = true;
+            leaveRoomButton.disabled = false;
+            sendButton.disabled = false;
+            addMessage('System', `Joining room ${roomId}`, 'status');
+        }
+
+        function leaveRoom() {
+            if (currentRoomId) {
+                socket.emit('room:leave', currentRoomId);
+                currentRoomId = null;
+                joinRoomButton.disabled = false;
+                leaveRoomButton.disabled = true;
+                sendButton.disabled = true;
+                addMessage('System', 'Left the room', 'status');
+            }
+        }
+
         function sendMessage() {
-            const message = messageInput.value;
-            if (message && socket && socket.connected) {
-                socket.emit('message', message);
+            const message = messageInput.value.trim();
+            if (message && socket && socket.connected && currentRoomId) {
+                socket.emit('chat:message', {
+                    roomId: currentRoomId,
+                    content: message,
+                    type: 'text'
+                });
                 addMessage('You', message, 'sent');
                 messageInput.value = '';
             } else {
-                addMessage('System', 'Cannot send message - not connected', 'error');
+                addMessage('System', 'Cannot send message - not connected or no room joined', 'error');
             }
         }
 
