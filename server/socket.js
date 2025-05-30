@@ -3,8 +3,10 @@ import jwt from "jsonwebtoken";
 import ChatRoomModel from "./models/ChatRoomModel.js";
 import RoomModel from "./models/RoomModel.js";
 
+let io;
+
 export function setupSocket(server) {
-    const io = new Server(server, {
+    io = new Server(server, {
         cors: {
             origin: process.env.CLIENT_URL || "http://localhost:5173",
             methods: ["GET", "POST"]
@@ -28,6 +30,22 @@ export function setupSocket(server) {
 
     io.on("connection", (socket) => {
         console.log("User connected:", socket.user.username);
+
+        // Join user's notification room
+        socket.join(socket.user._id.toString());
+
+        socket.on("accept",async (bookingId)=>{
+            try{
+                const booking = await BookingModel.findById(bookingId);
+                booking.status = "accepted";
+                const learner= await UserModel.findById(booking.learner);
+                await booking.save();
+                io.to(learner.socketId).emit("booking:accepted",booking);
+            }catch(err){
+                console.log(err);
+                socket.emit("error",err.message);
+            }
+        })
 
         // Join room
         socket.on("room:join", async (roomId) => {
@@ -172,4 +190,6 @@ export function setupSocket(server) {
     });
 
     return io;
-} 
+}
+
+export { io }; 

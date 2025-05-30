@@ -18,7 +18,6 @@ export async function createRoom(req, res) {
             });
         }
 
-        // Check if user is either mentor or learner
         if (booking.mentor._id.toString() !== userId && booking.learner._id.toString() !== userId) {
             return res.status(403).json({
                 message: "Not authorized to create room for this booking"
@@ -32,7 +31,6 @@ export async function createRoom(req, res) {
             });
         }
 
-        // Check if room already exists
         const existingRoom = await RoomModel.findOne({ bookingId });
         if (existingRoom) {
             return res.status(400).json({
@@ -41,7 +39,6 @@ export async function createRoom(req, res) {
             });
         }
 
-        // Create room
         const room = await RoomModel.create({
             bookingId,
             mentor: booking.mentor._id,

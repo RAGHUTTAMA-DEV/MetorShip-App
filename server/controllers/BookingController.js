@@ -2,6 +2,7 @@ import BookingModel from "../models/BookingModel.js";
 import RoomModel from "../models/RoomModel.js";
 import UserModel from "../models/UserModel.js";
 import mongoose from "mongoose";
+import { io } from "../socket.js";
 
 export async function createBooking(req, res) {
     try {
@@ -83,7 +84,9 @@ export async function updateBookingStatus(req, res) {
         const { status } = req.body;
         const userId = req.userId;
 
-        const booking = await BookingModel.findById(id);
+        const booking = await BookingModel.findById(id)
+            .populate('learner', 'username')
+            .populate('mentor', 'username');
 
         if (!booking) {
             return res.status(404).json({
@@ -91,7 +94,6 @@ export async function updateBookingStatus(req, res) {
             });
         }
 
-        // Check if user is either mentor or learner
         if (booking.mentor.toString() !== userId && booking.learner.toString() !== userId) {
             return res.status(403).json({
                 message: "Not authorized to update this booking"
@@ -111,9 +113,18 @@ export async function updateBookingStatus(req, res) {
                 sessionLink: `https://meet.google.com/${Math.random().toString(36).substring(7)}`
             });
 
-            // Update booking with room details
             booking.sessionLink = room.sessionLink;
             await booking.save();
+
+            io.to(booking.learner._id.toString()).emit("booking:statusUpdate", {
+                bookingId: booking._id,
+                status: "confirmed",
+                sessionLink: room.sessionLink,
+                mentor: {
+                    id: booking.mentor._id,
+                    username: booking.mentor.username
+                }
+            });
 
             return res.status(200).json({
                 message: "Booking confirmed and room created successfully",
@@ -121,6 +132,15 @@ export async function updateBookingStatus(req, res) {
                 room
             });
         }
+
+        io.to(booking.learner._id.toString()).emit("booking:statusUpdate", {
+            bookingId: booking._id,
+            status: status,
+            mentor: {
+                id: booking.mentor._id,
+                username: booking.mentor.username
+            }
+        });
 
         return res.status(200).json({
             message: "Booking status updated successfully",
@@ -138,10 +158,21 @@ export async function updateBookingStatus(req, res) {
 export async function getBookings(req, res) {
     try {
         const userId = req.user._id;  
-        const { status, role } = req.query;
+        const { 
+            status, 
+            role,
+            startDate,
+            endDate,
+            searchTerm,
+            sortBy = 'date',
+            sortOrder = 'desc',
+            page = 1,
+            limit = 10
+        } = req.query;
 
         let query = {};
         
+        // Role-based filtering
         if (role === 'mentor') {
             query.mentor = userId;
         } else if (role === 'learner') {
@@ -152,6 +183,8 @@ export async function getBookings(req, res) {
                 { learner: userId }
             ];
         }
+
+        // Status filtering
         if (status) {
             const validStatuses = ['requested', 'confirmed', 'rejected', 'completed'];
             if (validStatuses.includes(status)) {
@@ -163,10 +196,47 @@ export async function getBookings(req, res) {
             }
         }
 
+        // Date range filtering
+        if (startDate || endDate) {
+            query.date = {};
+            if (startDate) {
+                query.date.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                query.date.$lte = new Date(endDate);
+            }
+        }
+
+        // Search term filtering (for mentor/learner names)
+        if (searchTerm) {
+            const searchQuery = {
+                $or: [
+                    { 'mentor.username': { $regex: searchTerm, $options: 'i' } },
+                    { 'learner.username': { $regex: searchTerm, $options: 'i' } }
+                ]
+            };
+            query = { ...query, ...searchQuery };
+        }
+
+        // Calculate skip value for pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Determine sort order
+        const sortDirection = sortOrder === 'asc' ? 1 : -1;
+        const sortOptions = {
+            [sortBy]: sortDirection
+        };
+
+        // Get total count for pagination
+        const totalCount = await BookingModel.countDocuments(query);
+
+        // Fetch bookings with pagination and sorting
         const bookings = await BookingModel.find(query)
             .populate('mentor', 'username email role')
             .populate('learner', 'username email role')
-            .sort({ date: -1, createdAt: -1 });
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(parseInt(limit));
 
         const formattedBookings = bookings.map(booking => ({
             id: booking._id,
@@ -195,6 +265,9 @@ export async function getBookings(req, res) {
         return res.status(200).json({
             message: "Bookings fetched successfully",
             count: formattedBookings.length,
+            totalCount,
+            totalPages: Math.ceil(totalCount / parseInt(limit)),
+            currentPage: parseInt(page),
             bookings: formattedBookings
         });
 
