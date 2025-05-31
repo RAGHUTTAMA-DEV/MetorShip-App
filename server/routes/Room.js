@@ -7,10 +7,8 @@ const router = express.Router();
 // All routes are protected
 router.use(middleware);
 
-// Create room for a booking
 router.post("/create", createRoom);
 
-// Get room details
 router.get("/:id", getRoom);
 
 // End room

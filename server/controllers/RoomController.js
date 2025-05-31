@@ -23,8 +23,6 @@ export async function createRoom(req, res) {
                 message: "Not authorized to create room for this booking"
             });
         }
-
-        // Check if booking is confirmed
         if (booking.status !== "confirmed") {
             return res.status(400).json({
                 message: "Booking must be confirmed to create a room"

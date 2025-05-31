@@ -1,6 +1,8 @@
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
+import { io } from "socket.io-client";
+import { useNavigate } from "react-router-dom";
 
 export default function LearnerDashboard() {
     const [bookings, setBookings] = useState([]);
@@ -8,12 +10,53 @@ export default function LearnerDashboard() {
     const [loading, setLoading] = useState(false);
     const [mentors, setMentors] = useState([]);
     const [availableSlots, setAvailableSlots] = useState([]);
+    const [socket, setSocket] = useState(null);
+    const [message, setMessage] = useState('');
+    const [messageType, setMessageType] = useState('');
     const [formData, setFormData] = useState({
         mentor: '',
         date: '',
         slot: ''
     });
     const { token, user } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        // Initialize socket connection
+        const newSocket = io('https://metorship-app.onrender.com', {
+            auth: { token }
+        });
+
+        newSocket.on('connect', () => {
+            console.log('Socket connected');
+        });
+
+        newSocket.on('error', (error) => {
+            console.error('Socket error:', error);
+            setError('Connection error. Please refresh the page.');
+        });
+
+        newSocket.on('booking:statusUpdate', (data) => {
+            console.log('Booking status update:', data);
+            // Refresh bookings when status changes
+            fetchBookings();
+            
+            // Show notification
+            if (data.status === 'confirmed') {
+                setMessage(`Your booking with ${data.mentor.username} has been confirmed!`);
+                setMessageType('success');
+            } else if (data.status === 'rejected') {
+                setMessage(`Your booking with ${data.mentor.username} has been rejected.`);
+                setMessageType('error');
+            }
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, [token]);
 
     useEffect(() => {
         fetchBookings();
@@ -132,10 +175,64 @@ export default function LearnerDashboard() {
                 setAvailableSlots([]);
                 // Refresh bookings
                 await fetchBookings();
+                setMessage('Booking created successfully!');
+                setMessageType('success');
             }
         } catch (err) {
             console.error("Error creating booking:", err);
             setError(err.response?.data?.message || 'Failed to create booking');
+            setMessageType('error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancelBooking = async (bookingId) => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const response = await axios.put(
+                `https://metorship-app.onrender.com/api/booking/${bookingId}/status`,
+                { status: 'cancelled' },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                await fetchBookings();
+                setMessage('Booking cancelled successfully');
+                setMessageType('success');
+            }
+        } catch (err) {
+            console.error('Error cancelling booking:', err);
+            setError(err.response?.data?.message || 'Failed to cancel booking');
+            setMessageType('error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleJoinRoom = async (bookingId) => {
+        try {
+            setLoading(true);
+            setError('');
+            
+            // Find the booking to get the room ID
+            const booking = bookings.find(b => b._id === bookingId || b.id === bookingId);
+            if (!booking || !booking.roomId) {
+                setError('Room not found for this booking');
+                return;
+            }
+            
+            // Navigate to the room using the room ID
+            navigate(`/room/${booking.roomId}`);
+        } catch (err) {
+            console.error('Error joining room:', err);
+            setError('Failed to join room');
         } finally {
             setLoading(false);
         }
@@ -151,10 +248,20 @@ export default function LearnerDashboard() {
                 </div>
             )}
 
+            {message && (
+                <div className={`mb-4 p-4 rounded-md ${
+                    messageType === 'success' 
+                        ? 'bg-green-50 border border-green-200 text-green-600'
+                        : 'bg-red-50 border border-red-200 text-red-600'
+                }`}>
+                    {message}
+                </div>
+            )}
+
             <div className="mb-8">
                 <h2 className="text-2xl font-semibold mb-4">Book a Session</h2>
                 <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
-                    <div className="grid gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Select Mentor
@@ -163,8 +270,8 @@ export default function LearnerDashboard() {
                                 name="mentor"
                                 value={formData.mentor}
                                 onChange={handleInputChange}
+                                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">Select a mentor</option>
                                 {mentors.map(mentor => (
@@ -177,30 +284,29 @@ export default function LearnerDashboard() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Date
+                                Select Date
                             </label>
                             <input
                                 type="date"
                                 name="date"
                                 value={formData.date}
                                 onChange={handleInputChange}
+                                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
-                                min={new Date().toISOString().split('T')[0]}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Time Slot
+                                Select Time Slot
                             </label>
                             <select
                                 name="slot"
                                 value={formData.slot}
                                 onChange={handleInputChange}
+                                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
                                 disabled={!formData.mentor}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                             >
                                 <option value="">Select a time slot</option>
                                 {availableSlots.map(slot => (
@@ -229,24 +335,32 @@ export default function LearnerDashboard() {
                 {bookings.length > 0 ? (
                     <div className="grid gap-4">
                         {bookings.map((booking) => (
-                            <div key={booking.id} className="p-4 bg-white rounded-lg shadow">
+                            <div key={booking._id || booking.id} className="p-4 bg-white rounded-lg shadow">
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        <h3 className="font-medium">Session with {booking.mentor.username}</h3>
+                                        <h3 className="font-medium">Session with {booking.mentor?.username || 'Unknown Mentor'}</h3>
                                         <p className="text-gray-600">Date: {new Date(booking.date).toLocaleDateString()}</p>
                                         <p className="text-gray-600">Time: {booking.slot}</p>
                                         <p className="text-gray-600">Status: {booking.status}</p>
                                     </div>
-                                    {booking.status === 'confirmed' && booking.sessionLink && (
-                                        <a
-                                            href={booking.sessionLink}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        >
-                                            Join Session
-                                        </a>
-                                    )}
+                                    <div className="flex gap-2">
+                                        {booking.status === 'confirmed' && (
+                                            <button
+                                                onClick={() => handleJoinRoom(booking._id || booking.id)}
+                                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                            >
+                                                Join Room
+                                            </button>
+                                        )}
+                                        {booking.status === 'pending' && (
+                                            <button
+                                                onClick={() => handleCancelBooking(booking._id || booking.id)}
+                                                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                                            >
+                                                Cancel
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}

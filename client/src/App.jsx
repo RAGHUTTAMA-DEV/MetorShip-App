@@ -13,6 +13,7 @@ import ProtectedRoute from '../components/ProtectedRoute'
 import LearnerDashboard from '../components/LeanerDashBorad'
 import MentorDashboard from '../components/MentorDashBorad'
 import AdminDashboard from '../components/AdminDashBorad'
+import Room from '../components/Room'
 function App() {
  
   return(
@@ -32,6 +33,11 @@ function App() {
                         <ProtectedRoute roles={['user']}>
                           <LearnerDashboard/>
       </ProtectedRoute>}/>
+      <Route path="/room/:roomId" element={
+    <ProtectedRoute>
+        <Room />
+    </ProtectedRoute>
+} />
       <Route path='admin' element={
          <ProtectedRoute roles={['admin']}>
             <AdminDashboard/>

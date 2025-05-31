@@ -249,7 +249,18 @@ export async function getBookings(req, res) {
             .skip(skip)
             .limit(parseInt(limit));
 
-        const formattedBookings = bookings.map(booking => ({
+        // Get room IDs for confirmed bookings
+        const roomIds = await Promise.all(
+            bookings.map(async (booking) => {
+                if (booking.status === 'confirmed') {
+                    const room = await RoomModel.findOne({ bookingId: booking._id });
+                    return room ? room._id : null;
+                }
+                return null;
+            })
+        );
+
+        const formattedBookings = bookings.map((booking, index) => ({
             id: booking._id,
             mentor: {
                 id: booking.mentor._id,
@@ -269,6 +280,7 @@ export async function getBookings(req, res) {
             sessionLink: booking.sessionLink,
             whiteBoardId: booking.whiteBoardId,
             chatRoomId: booking.chatRoomId,
+            roomId: roomIds[index],
             createdAt: booking.createdAt,
             updatedAt: booking.updatedAt
         }));
