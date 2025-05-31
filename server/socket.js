@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import ChatRoomModel from "./models/ChatRoomModel.js";
 import RoomModel from "./models/RoomModel.js";
+import BookingModel from "./models/BookingModel.js";
+import UserModel from "./models/UserModel.js";
 
 let io;
 
@@ -34,18 +36,80 @@ export function setupSocket(server) {
         // Join user's notification room
         socket.join(socket.user._id.toString());
 
-        socket.on("accept",async (bookingId)=>{
-            try{
+        socket.on("accept", async (bookingId) => {
+            try {
                 const booking = await BookingModel.findById(bookingId);
-                booking.status = "accepted";
-                const learner= await UserModel.findById(booking.learner);
+                if (!booking) {
+                    throw new Error("Booking not found");
+                }
+                
+                const learner = await UserModel.findById(booking.learner);
+                if (!learner) {
+                    throw new Error("Learner not found");
+                }
+
+                // Update booking status
+                booking.status = "confirmed";
                 await booking.save();
-                io.to(learner.socketId).emit("booking:accepted",booking);
-            }catch(err){
-                console.log(err);
-                socket.emit("error",err.message);
+
+                // Create room for the session
+                const room = await RoomModel.create({
+                    bookingId: booking._id,
+                    mentor: booking.mentor,
+                    learner: booking.learner,
+                    sessionLink: `https://meet.google.com/${Math.random().toString(36).substring(7)}`
+                });
+
+                // Update booking with session link
+                booking.sessionLink = room.sessionLink;
+                await booking.save();
+
+                // Notify learner
+                io.to(learner._id.toString()).emit("booking:statusUpdate", {
+                    bookingId: booking._id,
+                    status: "confirmed",
+                    sessionLink: room.sessionLink,
+                    mentor: {
+                        id: booking.mentor,
+                        username: socket.user.username
+                    }
+                });
+            } catch (err) {
+                console.error("Socket accept error:", err);
+                socket.emit("error", err.message);
             }
-        })
+        });
+
+        socket.on("reject", async (bookingId) => {
+            try {
+                const booking = await BookingModel.findById(bookingId);
+                if (!booking) {
+                    throw new Error("Booking not found");
+                }
+                
+                const learner = await UserModel.findById(booking.learner);
+                if (!learner) {
+                    throw new Error("Learner not found");
+                }
+
+                // Update booking status
+                booking.status = "rejected";
+                await booking.save();
+
+                // Notify learner
+                io.to(learner._id.toString()).emit("booking:statusUpdate", {
+                    bookingId: booking._id,
+                    status: "rejected",
+                    mentor: {
+                        id: booking.mentor,
+                        username: socket.user.username
+                    }
+                });
+            } catch (err) {
+                console.error("Socket reject error:", err);
+                socket.emit("error", err.message);
+            }
+        });
 
         // Join room
         socket.on("room:join", async (roomId) => {
