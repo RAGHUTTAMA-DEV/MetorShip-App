@@ -19,7 +19,6 @@ const server = http.createServer(app);
 
 setupSocket(server);
 
-// API root route
 app.get("/", (req, res) => {
     res.json({
         message: "Welcome to Mentorship App API",

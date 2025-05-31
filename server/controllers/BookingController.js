@@ -94,7 +94,18 @@ export async function updateBookingStatus(req, res) {
             });
         }
 
-        if (booking.mentor.toString() !== userId && booking.learner.toString() !== userId) {
+        // Convert both IDs to strings for comparison
+        const mentorId = booking.mentor._id.toString();
+        const learnerId = booking.learner._id.toString();
+        const userIdStr = userId.toString();
+
+        console.log('Comparing IDs:', {
+            mentorId,
+            learnerId,
+            userId: userIdStr
+        });
+
+        if (mentorId !== userIdStr && learnerId !== userIdStr) {
             return res.status(403).json({
                 message: "Not authorized to update this booking"
             });

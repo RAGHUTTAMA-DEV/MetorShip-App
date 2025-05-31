@@ -1,15 +1,22 @@
-import { Link } from "react-router-dom"
-export default function Home(){
-    return(
-        <div>
-            <h1>Book a Home</h1>
-            <div>
-                <Link to="/home">Home</Link>
-                <Link to="/menrors">Mentors</Link>
-                <Link to="/booking">Booking</Link>
-                <Link to="/login">Login</Link>
-                <Link to="/Signup">Register</Link>
-            </div>
+import { useAuth } from '../context/AuthContext';
+import { Navigate } from 'react-router-dom';
+
+export default function Home() {
+    const { user } = useAuth();
+
+    // Redirect based on user role
+    if (user?.role === 'user') {
+        return <Navigate to="/user" replace />;
+    } else if (user?.role === 'mentor') {
+        return <Navigate to="/mentor" replace />;
+    } else if (user?.role === 'admin') {
+        return <Navigate to="/admin" replace />;
+    }
+
+    return (
+        <div className="home-container">
+            <h1>Welcome to Mentorship App</h1>
+            <p>Please wait while we redirect you to your dashboard...</p>
         </div>
-    )
+    );
 }
