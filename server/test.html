@@ -401,18 +401,25 @@
                 addMessage('System', `Whiteboard ${data.locked ? 'locked' : 'unlocked'} by ${data.lockedBy || 'system'}`, 'status');
             });
 
-            socket.on('whiteboard:history', (strokes) => {
+            socket.on('whiteboard:history', (data) => {
+                // Clear the canvas first
                 ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
-                strokes.forEach(stroke => {
-                    ctx.strokeStyle = stroke.color;
-                    ctx.lineWidth = stroke.width;
-                    ctx.beginPath();
-                    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-                    stroke.points.forEach(point => {
-                        ctx.lineTo(point.x, point.y);
+                
+                // Draw all strokes from history
+                if (data && data.strokes && Array.isArray(data.strokes)) {
+                    data.strokes.forEach(stroke => {
+                        if (stroke && stroke.points && Array.isArray(stroke.points)) {
+                            ctx.strokeStyle = stroke.color;
+                            ctx.lineWidth = stroke.width;
+                            ctx.beginPath();
+                            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                            stroke.points.forEach(point => {
+                                ctx.lineTo(point.x, point.y);
+                            });
+                            ctx.stroke();
+                        }
                     });
-                    ctx.stroke();
-                });
+                }
             });
 
             socket.on('error', (error) => {

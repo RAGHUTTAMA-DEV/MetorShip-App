@@ -7,8 +7,48 @@ const whiteboardSchema = new mongoose.Schema({
         required:true
     },
     strokes:[{
-        id:String,points:[{
-            x:Number,y:Number
+        id:String,
+        points:[{
+            x:Number,
+            y:Number
+        }],
+        color:String,
+        width:Number,
+        tool:String,
+        userId:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User",
+            required:true
+        },
+        timestamp:{
+            type:Date,
+            default:Date.now
+        }
+    }],
+    undoStack: [{
+        id:String,
+        points:[{
+            x:Number,
+            y:Number
+        }],
+        color:String,
+        width:Number,
+        tool:String,
+        userId:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User",
+            required:true
+        },
+        timestamp:{
+            type:Date,
+            default:Date.now
+        }
+    }],
+    redoStack: [{
+        id:String,
+        points:[{
+            x:Number,
+            y:Number
         }],
         color:String,
         width:Number,
@@ -26,7 +66,8 @@ const whiteboardSchema = new mongoose.Schema({
     isLocked:{
         type:Boolean,
         default:false
-    },lockedBy:{
+    },
+    lockedBy:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User"
     },

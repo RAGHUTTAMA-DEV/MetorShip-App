@@ -33,7 +33,6 @@ export function setupSocket(server) {
     io.on("connection", (socket) => {
         console.log("User connected:", socket.user.username);
 
-        // Join user's notification room
         socket.join(socket.user._id.toString());
 
         socket.on("accept", async (bookingId) => {
@@ -59,12 +58,9 @@ export function setupSocket(server) {
                     learner: booking.learner,
                     sessionLink: `https://meet.google.com/${Math.random().toString(36).substring(7)}`
                 });
-
-                // Update booking with session link
                 booking.sessionLink = room.sessionLink;
                 await booking.save();
 
-                // Notify learner
                 io.to(learner._id.toString()).emit("booking:statusUpdate", {
                     bookingId: booking._id,
                     status: "confirmed",
@@ -92,8 +88,6 @@ export function setupSocket(server) {
                 if (!learner) {
                     throw new Error("Learner not found");
                 }
-
-                // Update booking status
                 booking.status = "rejected";
                 await booking.save();
 
@@ -114,19 +108,25 @@ export function setupSocket(server) {
 
         socket.on("room:join", async (roomId) => {
             try {
-                const room = await RoomModel.findById(roomId);
+                const room = await RoomModel.findById(roomId)
+                    .populate('mentor', '_id')
+                    .populate('learner', '_id');
+                    
                 if (!room) {
                     throw new Error("Room not found");
                 }
 
                 // Check if user is authorized to join this room
-                if (room.mentor.toString() !== socket.user._id && room.learner.toString() !== socket.user._id) {
-                    throw new Error(`Unauthorized to join this room. You must be either the mentor (${room.mentor}) or learner (${room.learner})`);
+                const isMentor = room.mentor._id.toString() === socket.user._id;
+                const isLearner = room.learner._id.toString() === socket.user._id;
+
+                if (!isMentor && !isLearner) {
+                    throw new Error("Unauthorized to join this room. You must be either the mentor or learner of this session.");
                 }
 
                 // Join socket room
                 socket.join(roomId);
-                console.log(`User ${socket.user.username} joined room ${roomId}`);
+                console.log(`User ${socket.user.username} joined room ${roomId} as ${isMentor ? 'mentor' : 'learner'}`);
 
                 // Create or get chat room
                 let chatRoom;
@@ -137,18 +137,18 @@ export function setupSocket(server) {
                 if (!chatRoom) {
                     chatRoom = await ChatRoomModel.create({
                         roomId,
-                        participants: [room.mentor, room.learner],
+                        participants: [room.mentor._id, room.learner._id],
                         messages: []
                     });
                     
-                    // Update room with chat room ID
                     room.chatRoomId = chatRoom._id;
                     await room.save();
                 }
 
                 socket.to(roomId).emit("room:userJoined", {
                     username: socket.user.username,
-                    userId: socket.user._id
+                    userId: socket.user._id,
+                    role: isMentor ? 'mentor' : 'learner'
                 });
 
                 // Get chat history
@@ -157,6 +157,22 @@ export function setupSocket(server) {
                 
                 if (populatedChatRoom) {
                     socket.emit("chat:history", populatedChatRoom.messages);
+                }
+
+                // Get whiteboard history if it exists
+                if (room.whiteboardId) {
+                    const whiteboard = await WhiteboardModel.findById(room.whiteboardId)
+                        .populate("strokes.userId", "username")
+                        .populate("undoStack.userId", "username")
+                        .populate("redoStack.userId", "username");
+                    
+                    if (whiteboard) {
+                        socket.emit("whiteboard:history", {
+                            strokes: whiteboard.strokes || [],
+                            undoStack: whiteboard.undoStack || [],
+                            redoStack: whiteboard.redoStack || []
+                        });
+                    }
                 }
             } catch (err) {
                 console.error("Room join error:", err);
@@ -179,8 +195,6 @@ export function setupSocket(server) {
                     type,
                     timestamp: new Date()
                 };
-
-                // Update chat room
                 const chatRoom = await ChatRoomModel.findByIdAndUpdate(
                     room.chatRoomId,
                     { $push: { messages: message } },
@@ -188,7 +202,6 @@ export function setupSocket(server) {
                 ).populate('messages.sender', 'username');
 
                 if (chatRoom) {
-                    // Broadcast message to room
                     io.to(roomId).emit("chat:newMessage", {
                         ...message,
                         sender: {
@@ -218,20 +231,22 @@ export function setupSocket(server) {
                 if(!whiteboard){
                     whiteboard=await WhiteboardModel.create({
                         roomId,
-                        strokes:[]
+                        strokes:[],
+                        undoStack: [],
+                        redoStack: []
                     });
                     room.whiteboardId=whiteboard._id;
                     await room.save();
                 }
-
                 whiteboard.strokes.push({
                     ...stroke,
                     userId:socket.user._id,
                     timestamp:new Date()
                 });
+                whiteboard.redoStack = [];
                 await whiteboard.save();
                 
-                socket.to(roomId).emit("whiteboard:stroke",{
+                io.to(roomId).emit("whiteboard:stroke",{
                     stroke:{
                         ...stroke,
                         userId:socket.user._id,
@@ -272,7 +287,6 @@ export function setupSocket(server) {
         });
 
         socket.on("whiteboard:undo",async (roomId)=>{
-
             try{
                 const room=await RoomModel.findById(roomId);
                 if(!room){
@@ -281,25 +295,26 @@ export function setupSocket(server) {
                 if(room.mentor.toString()!==socket.user._id && room.learner.toString()!==socket.user._id){
                     throw new Error("Unauthorized to undo whiteboard");
                 }
-                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                let whiteboard=await WhiteboardModel.findById(room.whiteboardId);
                 if(!whiteboard){
                     throw new Error("Whiteboard not found");
                 }
                 if(whiteboard.strokes.length===0){
                     throw new Error("Whiteboard is empty");
                 }
-                const lastStroke=whiteboard.strokes.pop();
+                const lastStroke = whiteboard.strokes.pop();
+                whiteboard.undoStack.push(lastStroke);
                 await whiteboard.save();
-                socket.to(roomId).emit("whiteboard:undo",{
-                    stroke:lastStroke
+                io.to(roomId).emit("whiteboard:undo", {
+                    stroke: lastStroke
                 });
                 console.log("Whiteboard undone in room",roomId);
                 
             }catch(err){
                 console.error("Whiteboard undo error:", err);
-                socket.emit("error", "Error undoing whiteboard");
+                socket.emit("error", err.message || "Error undoing whiteboard");
             }
-        })
+        });
 
         socket.on("whiteboard:redo",async (roomId)=>{
             try{
@@ -310,25 +325,26 @@ export function setupSocket(server) {
                 if(room.mentor.toString()!==socket.user._id && room.learner.toString()!==socket.user._id){
                     throw new Error("Unauthorized to redo whiteboard");
                 }
-                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                let whiteboard=await WhiteboardModel.findById(room.whiteboardId);
                 if(!whiteboard){
                     throw new Error("Whiteboard not found");
                 }
-                if(whiteboard.strokes.length===0){
-                    throw new Error("Whiteboard is empty");
+                if(whiteboard.undoStack.length===0){
+                    throw new Error("Nothing to redo");
                 }
-                const nextStroke=whiteboard.strokes[whiteboard.strokes.length-1];
-                whiteboard.strokes.push(nextStroke);
+                const strokeToRedo = whiteboard.undoStack.pop();
+                whiteboard.strokes.push(strokeToRedo);
                 await whiteboard.save();
-                socket.to(roomId).emit("whiteboard:redo",{
-                    stroke:nextStroke
+
+                io.to(roomId).emit("whiteboard:redo", {
+                    stroke: strokeToRedo
                 });
                 
             }catch(err){
                 console.error("Whiteboard redo error:", err);
-                socket.emit("error", "Error redoing whiteboard");
+                socket.emit("error", err.message || "Error redoing whiteboard");
             }
-        })
+        });
 
         socket.on('whiteboard:lock', async (data) => {
             try {
@@ -395,20 +411,30 @@ export function setupSocket(server) {
         });
 
         socket.on("whiteboard:getHistory", async (roomId) => {
-             try{
-                const room=await RoomModel.findById(roomId);
+            try {
+                const room = await RoomModel.findById(roomId);
                 if(!room || !room.whiteboardId){
                     throw new Error("Whiteboard not found");
                 }
-                const whiteboard=await WhiteboardModel.findById(room.whiteboardId).populate("strokes.userId","username");
-                socket.emit("whiteboard:getHistory",whiteboard.strokes);
-             }catch(err){
+                const whiteboard = await WhiteboardModel.findById(room.whiteboardId)
+                    .populate("strokes.userId", "username")
+                    .populate("undoStack.userId", "username")
+                    .populate("redoStack.userId", "username");
+                
+                // Ensure we're sending a valid data structure
+                const historyData = {
+                    strokes: whiteboard.strokes || [],
+                    undoStack: whiteboard.undoStack || [],
+                    redoStack: whiteboard.redoStack || []
+                };
+
+                // Emit to all users in the room
+                io.to(roomId).emit("whiteboard:history", historyData);
+            } catch(err) {
                 console.error("Whiteboard get history error:", err);
-                socket.emit("error", "Error fetching whiteboard history");
-             }
-        })
-
-
+                socket.emit("error", err.message || "Error fetching whiteboard history");
+            }
+        });
 
         socket.on("chat:markRead", async (data) => {
             try {
@@ -442,7 +468,6 @@ export function setupSocket(server) {
             }
         });
 
-        // Leave room
         socket.on("room:leave", (roomId) => {
             socket.leave(roomId);
             socket.to(roomId).emit("room:userLeft", {
@@ -451,7 +476,6 @@ export function setupSocket(server) {
             });
         });
 
-        // Handle disconnection
         socket.on("disconnect", () => {
             console.log("User disconnected:", socket.user.username);
         });
