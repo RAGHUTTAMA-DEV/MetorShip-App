@@ -14,6 +14,10 @@ export default function Room() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
+    const canvasRef = useRef(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [drawingColor, setDrawingColor] = useState('#000000');
+    const [lineWidth, setLineWidth] = useState(2);
 
     useEffect(() => {
         if (!roomId) {
@@ -105,6 +109,91 @@ export default function Room() {
             newSocket.disconnect();
         };
     }, [token, roomId]);
+
+    useEffect(() => {
+        if (!canvasRef.current) return;
+
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        const resizeCanvas = () => {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        };
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Drawing functions
+        const startDrawing = (e) => {
+            setIsDrawing(true);
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            // Emit drawing start
+            socket?.emit('drawing:start', { x, y, color: drawingColor, lineWidth });
+        };
+
+        const draw = (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.strokeStyle = drawingColor;
+            ctx.lineWidth = lineWidth;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            // Emit drawing point
+            socket?.emit('drawing:point', { x, y });
+        };
+
+        const stopDrawing = () => {
+            if (!isDrawing) return;
+            setIsDrawing(false);
+            ctx.closePath();
+            
+            // Emit drawing end
+            socket?.emit('drawing:end');
+        };
+
+        // Socket drawing event listeners
+        socket?.on('drawing:start', ({ x, y, color, lineWidth }) => {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+        });
+
+        socket?.on('drawing:point', ({ x, y }) => {
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        });
+
+        socket?.on('drawing:end', () => {
+            ctx.closePath();
+        });
+
+        // Add event listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        return () => {
+            canvas.removeEventListener('mousedown', startDrawing);
+            canvas.removeEventListener('mousemove', draw);
+            canvas.removeEventListener('mouseup', stopDrawing);
+            canvas.removeEventListener('mouseout', stopDrawing);
+            window.removeEventListener('resize', resizeCanvas);
+        };
+    }, [socket, drawingColor, lineWidth]);
 
     // Scroll to bottom when new messages arrive
     useEffect(() => {
