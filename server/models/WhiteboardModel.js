@@ -12,7 +12,6 @@ const whiteboardSchema = new mongoose.Schema({
         }],
         color:String,
         width:Number,
-        height:Number,
         tool:String,
         userId:{
             type:mongoose.Schema.Types.ObjectId,

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
     <title>Socket.IO Chat Test</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
@@ -107,6 +108,37 @@
             background-color: #f5f5f5;
             border-radius: 4px;
         }
+        /* Whiteboard styles */
+        #whiteboardContainer {
+            height: 400px;
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            background-color: white;
+            border-radius: 8px;
+            position: relative;
+        }
+        #whiteboardCanvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        .whiteboard-tools {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .whiteboard-tools button {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        .whiteboard-tools input[type="color"] {
+            width: 40px;
+            height: 30px;
+            padding: 0;
+        }
+        .whiteboard-tools input[type="range"] {
+            width: 100px;
+        }
     </style>
 </head>
 <body>
@@ -147,6 +179,26 @@
         </div>
     </div>
 
+    <!-- Whiteboard Panel -->
+    <div class="panel">
+        <h2>Whiteboard</h2>
+        <div class="whiteboard-tools">
+            <select id="toolSelect">
+                <option value="pen">Pen</option>
+                <option value="eraser">Eraser</option>
+                <option value="highlighter">Highlighter</option>
+            </select>
+            <input type="color" id="colorPicker" value="#000000">
+            <input type="range" id="strokeWidth" min="1" max="20" value="2">
+            <button onclick="clearWhiteboard()" id="clearButton" disabled>Clear</button>
+            <button onclick="lockWhiteboard()" id="lockButton" disabled>Lock</button>
+            <button onclick="getWhiteboardHistory()" id="historyButton" disabled>Get History</button>
+        </div>
+        <div id="whiteboardContainer">
+            <canvas id="whiteboardCanvas"></canvas>
+        </div>
+    </div>
+
     <script>
         let socket;
         let currentRoomId = null;
@@ -156,6 +208,11 @@
         const tokenInput = document.getElementById('tokenInput');
         const roomIdInput = document.getElementById('roomIdInput');
         const usersInRoom = document.getElementById('usersInRoom');
+        const whiteboardCanvas = document.getElementById('whiteboardCanvas');
+        const ctx = whiteboardCanvas.getContext('2d');
+        let isDrawing = false;
+        let currentStroke = null;
+        let isWhiteboardLocked = false;
 
         // Button references
         const connectButton = document.getElementById('connectButton');
@@ -164,6 +221,90 @@
         const leaveRoomButton = document.getElementById('leaveRoomButton');
         const sendButton = document.getElementById('sendButton');
         const markReadButton = document.getElementById('markReadButton');
+        const clearButton = document.getElementById('clearButton');
+        const lockButton = document.getElementById('lockButton');
+        const historyButton = document.getElementById('historyButton');
+
+        // Initialize canvas
+        function initCanvas() {
+            whiteboardCanvas.width = whiteboardCanvas.offsetWidth;
+            whiteboardCanvas.height = whiteboardCanvas.offsetHeight;
+            ctx.strokeStyle = document.getElementById('colorPicker').value;
+            ctx.lineWidth = document.getElementById('strokeWidth').value;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        // Whiteboard event listeners
+        whiteboardCanvas.addEventListener('mousedown', startDrawing);
+        whiteboardCanvas.addEventListener('mousemove', draw);
+        whiteboardCanvas.addEventListener('mouseup', endDrawing);
+        whiteboardCanvas.addEventListener('mouseleave', endDrawing);
+
+        function startDrawing(e) {
+            if (isWhiteboardLocked) return;
+            isDrawing = true;
+            const rect = whiteboardCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            currentStroke = {
+                id: Date.now().toString(),
+                points: [{ x, y }],
+                color: document.getElementById('colorPicker').value,
+                width: document.getElementById('strokeWidth').value,
+                tool: document.getElementById('toolSelect').value
+            };
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if (!isDrawing || isWhiteboardLocked) return;
+            const rect = whiteboardCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            currentStroke.points.push({ x, y });
+            
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+
+        function endDrawing() {
+            if (!isDrawing || isWhiteboardLocked) return;
+            isDrawing = false;
+            
+            if (currentStroke && currentStroke.points.length > 1) {
+                socket.emit('whiteboard:stroke', {
+                    roomId: currentRoomId,
+                    stroke: currentStroke
+                });
+            }
+            
+            currentStroke = null;
+        }
+
+        function clearWhiteboard() {
+            if (!socket || !currentRoomId) return;
+            socket.emit('whiteboard:clear', currentRoomId);
+        }
+
+        function lockWhiteboard() {
+            if (!socket || !currentRoomId) return;
+            isWhiteboardLocked = !isWhiteboardLocked;
+            socket.emit('whiteboard:lock', {
+                roomId: currentRoomId,
+                locked: isWhiteboardLocked
+            });
+            lockButton.textContent = isWhiteboardLocked ? 'Unlock' : 'Lock';
+        }
+
+        function getWhiteboardHistory() {
+            if (!socket || !currentRoomId) return;
+            socket.emit('whiteboard:getHistory', currentRoomId);
+        }
 
         function updateConnectionStatus(connected) {
             if (connected) {
@@ -181,6 +322,9 @@
                 leaveRoomButton.disabled = true;
                 sendButton.disabled = true;
                 markReadButton.disabled = true;
+                clearButton.disabled = true;
+                lockButton.disabled = true;
+                historyButton.disabled = true;
                 currentRoomId = null;
                 usersInRoom.innerHTML = '';
             }
@@ -202,6 +346,7 @@
             socket.on('connect', () => {
                 updateConnectionStatus(true);
                 addMessage('System', 'Connected to server', 'status');
+                initCanvas();
             });
 
             socket.on('disconnect', () => {
@@ -234,6 +379,42 @@
                 });
             });
 
+            // Whiteboard events
+            socket.on('whiteboard:stroke', (data) => {
+                const { stroke } = data;
+                ctx.strokeStyle = stroke.color;
+                ctx.lineWidth = stroke.width;
+                ctx.beginPath();
+                ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                stroke.points.forEach(point => {
+                    ctx.lineTo(point.x, point.y);
+                });
+                ctx.stroke();
+            });
+
+            socket.on('whiteboard:cleared', () => {
+                ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+            });
+
+            socket.on('whiteboard:lockState', (data) => {
+                isWhiteboardLocked = data.locked;
+                addMessage('System', `Whiteboard ${data.locked ? 'locked' : 'unlocked'} by ${data.lockedBy || 'system'}`, 'status');
+            });
+
+            socket.on('whiteboard:history', (strokes) => {
+                ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+                strokes.forEach(stroke => {
+                    ctx.strokeStyle = stroke.color;
+                    ctx.lineWidth = stroke.width;
+                    ctx.beginPath();
+                    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                    stroke.points.forEach(point => {
+                        ctx.lineTo(point.x, point.y);
+                    });
+                    ctx.stroke();
+                });
+            });
+
             socket.on('error', (error) => {
                 addMessage('System', 'Error: ' + error, 'error');
             });
@@ -255,12 +436,21 @@
                 return;
             }
 
+            // Validate if the roomId is a valid MongoDB ObjectId
+            if (!/^[0-9a-fA-F]{24}$/.test(roomId)) {
+                addMessage('System', 'Invalid room ID format. Room ID must be a valid MongoDB ObjectId (24 characters)', 'error');
+                return;
+            }
+
             socket.emit('room:join', roomId);
             currentRoomId = roomId;
             joinRoomButton.disabled = true;
             leaveRoomButton.disabled = false;
             sendButton.disabled = false;
             markReadButton.disabled = false;
+            clearButton.disabled = false;
+            lockButton.disabled = false;
+            historyButton.disabled = false;
             addMessage('System', `Joining room ${roomId}`, 'status');
         }
 
@@ -272,6 +462,9 @@
                 leaveRoomButton.disabled = true;
                 sendButton.disabled = true;
                 markReadButton.disabled = true;
+                clearButton.disabled = true;
+                lockButton.disabled = true;
+                historyButton.disabled = true;
                 usersInRoom.innerHTML = '';
                 addMessage('System', 'Left the room', 'status');
             }
@@ -298,30 +491,29 @@
                 const messageIds = Array.from(messageContainer.getElementsByClassName('message'))
                     .map(msg => msg.dataset.messageId)
                     .filter(id => id);
-
+                
                 if (messageIds.length > 0) {
                     socket.emit('chat:markRead', {
                         roomId: currentRoomId,
                         messageIds
                     });
-                    addMessage('System', 'Marked messages as read', 'status');
                 }
             }
         }
 
-        function addMessage(sender, message, type) {
+        function addMessage(sender, content, type) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type}`;
-            messageDiv.textContent = `${sender}: ${message}`;
+            messageDiv.textContent = `${sender}: ${content}`;
             messageContainer.appendChild(messageDiv);
             messageContainer.scrollTop = messageContainer.scrollHeight;
         }
 
-        function updateUserList(user) {
+        function updateUserList(data) {
             const userDiv = document.createElement('div');
             userDiv.className = 'user-item';
-            userDiv.id = `user-${user.userId}`;
-            userDiv.textContent = user.username;
+            userDiv.id = `user-${data.userId}`;
+            userDiv.textContent = data.username;
             usersInRoom.appendChild(userDiv);
         }
 
@@ -332,15 +524,8 @@
             }
         }
 
-        // Allow sending message with Enter key
-        messageInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-
-        // Initial status
-        updateConnectionStatus(false);
+        // Initialize canvas on window resize
+        window.addEventListener('resize', initCanvas);
     </script>
 </body>
 </html> 
