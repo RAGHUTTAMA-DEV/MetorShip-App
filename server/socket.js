@@ -4,7 +4,7 @@ import ChatRoomModel from "./models/ChatRoomModel.js";
 import RoomModel from "./models/RoomModel.js";
 import BookingModel from "./models/BookingModel.js";
 import UserModel from "./models/UserModel.js";
-
+import WhiteboardModel from "./models/WhiteboardModel.js";
 let io;
 
 export function setupSocket(server) {
@@ -74,6 +74,7 @@ export function setupSocket(server) {
                         username: socket.user.username
                     }
                 });
+                alert("Booking accepted");
             } catch (err) {
                 console.error("Socket accept error:", err);
                 socket.emit("error", err.message);
@@ -96,7 +97,6 @@ export function setupSocket(server) {
                 booking.status = "rejected";
                 await booking.save();
 
-                // Notify learner
                 io.to(learner._id.toString()).emit("booking:statusUpdate", {
                     bookingId: booking._id,
                     status: "rejected",
@@ -105,13 +105,13 @@ export function setupSocket(server) {
                         username: socket.user.username
                     }
                 });
+                alert("Booking rejected");
             } catch (err) {
                 console.error("Socket reject error:", err);
                 socket.emit("error", err.message);
             }
         });
 
-        // Join room
         socket.on("room:join", async (roomId) => {
             try {
                 const room = await RoomModel.findById(roomId);
@@ -164,18 +164,15 @@ export function setupSocket(server) {
             }
         });
 
-        // Send message
         socket.on("chat:message", async (data) => {
             try {
                 const { roomId, content, type = 'text' } = data;
                 
-                // Find the room and its chat room
                 const room = await RoomModel.findById(roomId);
                 if (!room || !room.chatRoomId) {
                     throw new Error("Room or chat room not found");
                 }
 
-                // Create new message
                 const message = {
                     sender: socket.user._id,
                     content,
@@ -205,6 +202,172 @@ export function setupSocket(server) {
                 socket.emit("error", "Error sending message");
             }
         });
+
+        socket.on('whiteboard:stroke',async (data)=>{
+            try{
+                const {roomId,stroke}=data;
+                const room=await RoomModel.findById(roomId);
+                if(!room){
+                    throw new Error("Room not found");
+                }
+                if(room.mentor.toString()!==socket.user._id && room.learner.toString()!==socket.user._id){
+                    throw new Error("Unauthorized to send stroke");
+                }
+                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                 
+                if(!whiteboard){
+                    whiteboard=await WhiteboardModel.create({
+                        roomId,
+                        strokes:[]
+                    });
+                    room.whiteboardId=whiteboard._id;
+                    await room.save();
+                }
+
+                whiteboard.strokes.push({
+                    ...stroke,userId:socket.user._id,timestamp:new Date()
+                })
+                await whiteboard.save();
+                socket.to(roomId).emit("whiteboard:stroke",{
+                    stroke:{
+                        ...stroke,
+                        userId:socket.user._id,
+                        timestamp:new Date()
+                    }
+                })
+                console.log("Whiteboard stroke sent to room",roomId);
+            }catch(err){
+                console.error("Whiteboard stroke error:", err);
+                socket.emit("error", "Error sending stroke");
+            }
+        })
+
+        socket.on("whiteboard:clear",async (roomId)=>{
+            try{
+                const room=await RoomModel.findById(roomId);
+                if(!room){
+                    throw new Error("Room not found");
+                }
+                if(room.mentor.toString()!==socket.user._id && room.learner.toString()!==socket.user._id){
+                    throw new Error("Unauthorized to clear whiteboard");
+                }
+                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                
+                if(!whiteboard){
+                    throw new Error("Whiteboard not found");
+                }
+                whiteboard.strokes=[];
+                await whiteboard.save();
+                socket.to(roomId).emit("whiteboard:clear");
+                console.log("Whiteboard cleared in room",roomId);
+                
+            }catch(err){
+                console.error("Whiteboard clear error:", err);
+                socket.emit("error", "Error clearing whiteboard");
+            }
+        })
+
+        socket.on("whiteboard:undo",async (roomId)=>{
+
+            try{
+                const room=await RoomModel.findById(roomId);
+                if(!room){
+                    throw new Error("Room not found");
+                }
+                if(room.mentor.toString()!==socket.user._id && room.learner.toString()!==socket.user._id){
+                    throw new Error("Unauthorized to undo whiteboard");
+                }
+                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                if(!whiteboard){
+                    throw new Error("Whiteboard not found");
+                }
+                if(whiteboard.strokes.length===0){
+                    throw new Error("Whiteboard is empty");
+                }
+                const lastStroke=whiteboard.strokes.pop();
+                await whiteboard.save();
+                socket.to(roomId).emit("whiteboard:undo",{
+                    stroke:lastStroke
+                });
+                console.log("Whiteboard undone in room",roomId);
+                
+            }catch(err){
+                console.error("Whiteboard undo error:", err);
+                socket.emit("error", "Error undoing whiteboard");
+            }
+        })
+
+        socket.on("whiteboard:redo",async (roomId)=>{
+            try{
+                const room=await RoomModel.findById(roomId);
+                if(!room){
+                    throw new Error("Room not found");
+                }
+                if(room.mentor.toString()!==socket.user._id && room.learner.toString()!==socket.user._id){
+                    throw new Error("Unauthorized to redo whiteboard");
+                }
+                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                if(!whiteboard){
+                    throw new Error("Whiteboard not found");
+                }
+                if(whiteboard.strokes.length===0){
+                    throw new Error("Whiteboard is empty");
+                }
+                const nextStroke=whiteboard.strokes[whiteboard.strokes.length-1];
+                whiteboard.strokes.push(nextStroke);
+                await whiteboard.save();
+                socket.to(roomId).emit("whiteboard:redo",{
+                    stroke:nextStroke
+                });
+                
+            }catch(err){
+                console.error("Whiteboard redo error:", err);
+                socket.emit("error", "Error redoing whiteboard");
+            }
+        })
+
+        socket.on("whiteboard:lock",async (roomId,userId)=>{
+            try{
+                const room=await RoomModel.findOne({_id:roomId}).populate("learner");
+                if(room.learner.toString()!==socket.user._id){
+                    throw new Error("Unauthorized to lock whitebocard");
+                }
+                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                if(!whiteboard){
+                    throw new Error("Whiteboard not found");
+                }
+                whiteboard.isLocked=true;
+                whiteboard.lockedBy=userId;
+                await whiteboard.save();
+                socket.to(roomId).emit("whiteboard:lock",userId);
+                console.log("Whiteboard locked by ${userId}");
+            }catch(err){
+                console.error("Whiteboard lock error:", err);   
+            }
+        })
+
+        socket.on("whiteboard:unlock",async (roomId,userId)=>{
+            try{
+                const room=await RoomModel.findOne({_id:roomId}).populate("learner");
+                if(room.learner.toString()!==socket.user._id){
+                    throw new Error("Unauthorized to unlock whitebocard");
+                }
+                let whiteboard=await WhiteboardModel.findOne(room.whiteboardId);
+                if(!whiteboard){
+                    throw new Error("Whiteboard not found");
+                }
+                whiteboard.isLocked=false;
+                whiteboard.lockedBy=null;
+                await whiteboard.save();
+                socket.to(roomId).emit("whiteboard:unlock",userId);
+                console.log("Whiteboard unlocked by ${userId}");
+            }catch(err){
+                console.error("Whiteboard unlock error:", err);
+                socket.emit("whiteboard:unlockError",err.message);
+            }
+        })
+        
+
 
         socket.on("chat:markRead", async (data) => {
             try {

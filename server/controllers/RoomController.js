@@ -122,19 +122,16 @@ export async function endRoom(req, res) {
             });
         }
 
-        // Check if user is either mentor or learner
         if (room.mentor.toString() !== userId && room.learner.toString() !== userId) {
             return res.status(403).json({
                 message: "Not authorized to end this room"
             });
         }
 
-        // Update room status
         room.status = "ended";
         room.endedAt = new Date();
         await room.save();
 
-        // Update booking status
         await BookingModel.findByIdAndUpdate(room.bookingId, {
             status: "completed"
         });

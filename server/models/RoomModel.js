@@ -26,6 +26,10 @@ const roomSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ChatRoom'
     },
+    whiteboardId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Whiteboard'
+    },
     startedAt: {
         type: Date,
         default: Date.now

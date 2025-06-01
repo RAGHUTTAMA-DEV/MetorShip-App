@@ -1,26 +1,39 @@
 import mongoose from "mongoose";
 
 const whiteboardSchema = new mongoose.Schema({
-    title: {
-        type: String,
-        required: true
+    roomId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Room",
+        required:true
     },
-    content: {
-        type: String,
-        default: ""
-    },
-    createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true
-    },
-    participants: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
+    strokes:[{
+        id:String,points:[{
+            x:Number,y:Number
+        }],
+        color:String,
+        width:Number,
+        height:Number,
+        tool:String,
+        userId:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User",
+            required:true
+        },
+        timestamp:{
+            type:Date,
+            default:Date.now
+        }
     }],
-    createdAt: {
-        type: Date,
-        default: Date.now
+    isLocked:{
+        type:Boolean,
+        default:false
+    },lockedBy:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User"
+    },
+    createdAt:{
+        type:Date,
+        default:Date.now
     }
 });
 
