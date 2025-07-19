@@ -47,11 +47,9 @@ export function setupSocket(server) {
                     throw new Error("Learner not found");
                 }
 
-                // Update booking status
                 booking.status = "confirmed";
                 await booking.save();
 
-                // Create room for the session
                 const room = await RoomModel.create({
                     bookingId: booking._id,
                     mentor: booking.mentor,
@@ -116,19 +114,14 @@ export function setupSocket(server) {
                     throw new Error("Room not found");
                 }
 
-                // Check if user is authorized to join this room
                 const isMentor = room.mentor._id.toString() === socket.user._id;
                 const isLearner = room.learner._id.toString() === socket.user._id;
 
                 if (!isMentor && !isLearner) {
                     throw new Error("Unauthorized to join this room. You must be either the mentor or learner of this session.");
                 }
-
-                // Join socket room
                 socket.join(roomId);
                 console.log(`User ${socket.user.username} joined room ${roomId} as ${isMentor ? 'mentor' : 'learner'}`);
-
-                // Create or get chat room
                 let chatRoom;
                 if (room.chatRoomId) {
                     chatRoom = await ChatRoomModel.findById(room.chatRoomId);
@@ -150,16 +143,12 @@ export function setupSocket(server) {
                     userId: socket.user._id,
                     role: isMentor ? 'mentor' : 'learner'
                 });
-
-                // Get chat history
                 const populatedChatRoom = await ChatRoomModel.findById(chatRoom._id)
                     .populate('messages.sender', 'username');
                 
                 if (populatedChatRoom) {
                     socket.emit("chat:history", populatedChatRoom.messages);
                 }
-
-                // Get whiteboard history if it exists
                 if (room.whiteboardId) {
                     const whiteboard = await WhiteboardModel.findById(room.whiteboardId)
                         .populate("strokes.userId", "username")
@@ -420,8 +409,6 @@ export function setupSocket(server) {
                     .populate("strokes.userId", "username")
                     .populate("undoStack.userId", "username")
                     .populate("redoStack.userId", "username");
-                
-                // Ensure we're sending a valid data structure
                 const historyData = {
                     strokes: whiteboard.strokes || [],
                     undoStack: whiteboard.undoStack || [],
@@ -439,8 +426,6 @@ export function setupSocket(server) {
         socket.on("chat:markRead", async (data) => {
             try {
                 const { roomId, messageIds } = data;
-                
-                // Find the room and its chat room
                 const room = await RoomModel.findById(roomId);
                 if (!room || !room.chatRoomId) {
                     throw new Error("Room or chat room not found");
@@ -475,6 +460,46 @@ export function setupSocket(server) {
                 userId: socket.user._id
             });
         });
+
+        socket.on("call-user",({userToCall,signalData, from})=>{
+            try{
+             const user = io.sockets.sockets.get(userToCall);
+             if(user){
+                 user.emit("call-made",{
+                     signal:signalData,
+                     from,
+                     name:socket.user.username
+                 });
+             } 
+             else{
+                    socket.emit("error", "User not available for call");
+             } 
+
+            }catch(err){
+                console.error("Call user error:", err);
+                socket.emit("error", "Error calling user");
+            }
+        })
+
+        socket.on("answer-call",({signal,to})=>{
+            try{
+                const signal= io.sockets.sockets.get(to);
+                if(signal){
+                    signal.emit("call-accepted",{
+                        signal,
+                        to:socket.user._id
+                    });
+                } else {
+                    socket.emit("error", "User not available to answer call");
+                }
+                 
+            }catch(err){
+                console.error("Answer call error:", err);
+                socket.emit("error", "Error answering call");
+            }
+        });
+
+        
 
         socket.on("disconnect", () => {
             console.log("User disconnected:", socket.user.username);

@@ -38,10 +38,8 @@ export default function LearnerDashboard() {
 
         newSocket.on('booking:statusUpdate', (data) => {
             console.log('Booking status update:', data);
-            // Refresh bookings when status changes
             fetchBookings();
             
-            // Show notification
             if (data.status === 'confirmed') {
                 setMessage(`Your booking with ${data.mentor.username} has been confirmed!`);
                 setMessageType('success');
@@ -61,7 +59,7 @@ export default function LearnerDashboard() {
     useEffect(() => {
         fetchBookings();
         fetchMentors();
-    }, []);
+    }, [bookings,mentors]);
 
     const fetchMentors = async () => {
         try {
@@ -111,7 +109,6 @@ export default function LearnerDashboard() {
         }));
 
         if (name === 'mentor') {
-            // Reset slot when mentor changes
             setFormData(prev => ({
                 ...prev,
                 slot: ''
@@ -166,14 +163,12 @@ export default function LearnerDashboard() {
             );
 
             if (response.status === 201) {
-                // Reset form
                 setFormData({
                     mentor: '',
                     date: '',
                     slot: ''
                 });
                 setAvailableSlots([]);
-                // Refresh bookings
                 await fetchBookings();
                 setMessage('Booking created successfully!');
                 setMessageType('success');

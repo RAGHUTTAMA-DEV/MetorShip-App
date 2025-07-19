@@ -1,17 +1,22 @@
 import { useAuth } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 export default function Home() {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
-    // Redirect based on user role
-    if (user?.role === 'user') {
-        return <Navigate to="/user" replace />;
-    } else if (user?.role === 'mentor') {
-        return <Navigate to="/mentor" replace />;
-    } else if (user?.role === 'admin') {
-        return <Navigate to="/admin" replace />;
-    }
+    useEffect(() => {
+        if (user) {
+            if (user.role === 'user') {
+                navigate('/learner-dashboard', { replace: true });
+            } else if (user.role === 'mentor') {
+                navigate('/mentor-dashboard', { replace: true });
+            } else if (user.role === 'admin') {
+                navigate('/admin', { replace: true });
+            }
+        }
+    }, [user, navigate]);
 
     return (
         <div className="home-container">

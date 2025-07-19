@@ -22,7 +22,6 @@ export async function createReview(req, res) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Check if user has already reviewed this mentor
         const existingReview = await ReviewModel.findOne({
             mentor,
             reviewedBy

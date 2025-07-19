@@ -338,7 +338,7 @@
             }
 
             // Connect to Socket.IO server
-            socket = io('http://localhost:3000', {
+            socket = io('https://metorship-app.onrender.com', {
                 auth: { token },
                 transports: ['websocket']
             });

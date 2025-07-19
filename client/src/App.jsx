@@ -1,56 +1,58 @@
-import { ChakraProvider } from '@chakra-ui/react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { SocketProvider } from './contexts/SocketContext';
-import Navbar from './components/Navbar';
-import Home from './components/Home';
-import Login from './components/Login';
-import Register from './components/Register';
-import MentorDashboard from './components/MentorDashboard';
-import LearnerDashboard from './components/LearnerDashboard';
-import Room from './components/Room';
-import PrivateRoute from './components/PrivateRoute';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Home from '../components/Home';
+import Login from '../components/Login';
+import Signup from '../components/SignUp';
+import MentorDashboard from '../components/MentorDashBorad';
+import LearnerDashboard from '../components/LeanerDashBorad';
+import Room from '../components/Room';
+import ProtectedRoute from '../components/ProtectedRoute';
+import { AuthProvider } from '../context/AuthContext';
 
 function App() {
   return (
-    <ChakraProvider>
       <AuthProvider>
-        <SocketProvider>
           <Router>
-            <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="/register" element={<Signup />} />
+              <Route path="/unauthorized" element={<div>Unauthorized Access</div>} />
               <Route 
                 path="/mentor-dashboard" 
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute roles={'mentor'}>
                     <MentorDashboard />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 } 
               />
               <Route 
                 path="/learner-dashboard" 
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute roles={'user'}>
                     <LearnerDashboard />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 } 
               />
               <Route 
                 path="/room/:roomId" 
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute>
                     <Room />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 } 
               />
+
+              <Route path='/room/:roomId/' element={
+                <ProtectedRoute>
+                  <Room />
+                </ProtectedRoute>
+              } />
+
+              
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>
-        </SocketProvider>
       </AuthProvider>
-    </ChakraProvider>
   );
 }
 

@@ -37,8 +37,14 @@ export const AuthProvider = ({ children }) => {
                             }
                         }
                     );
-                    setUser(response.data.user);
-                    setToken(storedToken);
+
+                    if (response.data && response.data.user) {
+                        console.log('Setting user data:', response.data.user);
+                        setUser(response.data.user);
+                        setToken(storedToken);
+                    } else {
+                        throw new Error('Invalid user data received');
+                    }
                 } catch (error) {
                     console.error('Auth initialization error:', error);
                     localStorage.removeItem('token');
@@ -62,7 +68,7 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('token', token);
             setToken(token);
             setUser(user);
-            return { success: true };
+            return { success: true, user };
         } catch (error) {
             return {
                 success: false,

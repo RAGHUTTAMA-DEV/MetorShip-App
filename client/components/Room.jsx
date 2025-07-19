@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import Whiteboard from './Whiteboard';
 
 export default function Room() {
     const { token, user } = useAuth();
@@ -14,10 +15,6 @@ export default function Room() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
-    const canvasRef = useRef(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [drawingColor, setDrawingColor] = useState('#000000');
-    const [lineWidth, setLineWidth] = useState(2);
 
     useEffect(() => {
         if (!roomId) {
@@ -25,8 +22,6 @@ export default function Room() {
             setLoading(false);
             return;
         }
-
-        // Fetch room details
         const fetchRoomDetails = async () => {
             try {
                 const response = await fetch(`https://metorship-app.onrender.com/api/rooms/${roomId}`, {
@@ -41,8 +36,6 @@ export default function Room() {
 
                 const data = await response.json();
                 setRoom(data.room);
-
-                // Join socket room
                 if (socket) {
                     socket.emit('room:join', roomId);
                 }
@@ -55,8 +48,6 @@ export default function Room() {
         };
 
         fetchRoomDetails();
-
-        // Initialize socket connection
         const newSocket = io('https://metorship-app.onrender.com', {
             auth: { token }
         });
@@ -74,7 +65,6 @@ export default function Room() {
 
         newSocket.on('room:userJoined', (data) => {
             console.log('User joined:', data);
-            // Add system message
             setMessages(prev => [...prev, {
                 type: 'system',
                 content: `${data.username} joined the room`,
@@ -84,7 +74,6 @@ export default function Room() {
 
         newSocket.on('room:userLeft', (data) => {
             console.log('User left:', data);
-            // Add system message
             setMessages(prev => [...prev, {
                 type: 'system',
                 content: `${data.username} left the room`,
@@ -110,92 +99,6 @@ export default function Room() {
         };
     }, [token, roomId]);
 
-    useEffect(() => {
-        if (!canvasRef.current) return;
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        
-        // Set canvas size
-        const resizeCanvas = () => {
-            const container = canvas.parentElement;
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        };
-        
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // Drawing functions
-        const startDrawing = (e) => {
-            setIsDrawing(true);
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            
-            // Emit drawing start
-            socket?.emit('drawing:start', { x, y, color: drawingColor, lineWidth });
-        };
-
-        const draw = (e) => {
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            ctx.strokeStyle = drawingColor;
-            ctx.lineWidth = lineWidth;
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            // Emit drawing point
-            socket?.emit('drawing:point', { x, y });
-        };
-
-        const stopDrawing = () => {
-            if (!isDrawing) return;
-            setIsDrawing(false);
-            ctx.closePath();
-            
-            // Emit drawing end
-            socket?.emit('drawing:end');
-        };
-
-        // Socket drawing event listeners
-        socket?.on('drawing:start', ({ x, y, color, lineWidth }) => {
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = lineWidth;
-        });
-
-        socket?.on('drawing:point', ({ x, y }) => {
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        });
-
-        socket?.on('drawing:end', () => {
-            ctx.closePath();
-        });
-
-        // Add event listeners
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
-
-        return () => {
-            canvas.removeEventListener('mousedown', startDrawing);
-            canvas.removeEventListener('mousemove', draw);
-            canvas.removeEventListener('mouseup', stopDrawing);
-            canvas.removeEventListener('mouseout', stopDrawing);
-            window.removeEventListener('resize', resizeCanvas);
-        };
-    }, [socket, drawingColor, lineWidth]);
-
-    // Scroll to bottom when new messages arrive
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -273,21 +176,13 @@ export default function Room() {
     }
 
     return (
-        <div className="flex h-screen">
-            {/* Video Section */}
-            <div className="flex-1 p-4">
-                <div className="bg-gray-800 rounded-lg h-full flex flex-col">
-                    <div className="flex-1 relative">
-                        {/* Video container */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <iframe
-                                src={room.sessionLink}
-                                className="w-full h-full"
-                                allow="camera; microphone; fullscreen; speaker"
-                            />
-                        </div>
-                    </div>
-                    <div className="p-4 bg-gray-900">
+        <div className="flex h-screen bg-gray-100">
+            {/* Main content area */}
+            <div className="flex-1 flex flex-col">
+                {/* Room header */}
+                <div className="bg-white p-4 shadow">
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-2xl font-bold">Room: {room?.name || roomId}</h1>
                         <button
                             onClick={handleEndSession}
                             className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
@@ -296,73 +191,79 @@ export default function Room() {
                         </button>
                     </div>
                 </div>
-            </div>
 
-            {/* Chat Section */}
-            <div className="w-80 bg-white border-l">
-                <div className="h-full flex flex-col">
-                    {/* Chat header */}
-                    <div className="p-4 border-b">
-                        <h2 className="text-lg font-semibold">Chat</h2>
+                <div className="flex-1 flex min-h-0">
+                    {/* Whiteboard */}
+                    <div className="flex-1 p-4 min-h-0">
+                        <div className="h-full w-full">
+                            <Whiteboard socket={socket} />
+                        </div>
                     </div>
-
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4">
-                        {messages.map((message, index) => (
-                            <div
-                                key={`${message.timestamp}-${index}`}
-                                className={`mb-4 ${
-                                    message.type === 'system'
-                                        ? 'text-center text-gray-500 text-sm'
-                                        : message.sender._id === user._id
-                                        ? 'text-right'
-                                        : 'text-left'
-                                }`}
-                            >
-                                {message.type !== 'system' && (
-                                    <div className="text-xs text-gray-500 mb-1">
-                                        {message.sender.username}
-                                    </div>
-                                )}
+                    <div className="w-80 bg-white shadow-lg flex flex-col min-h-0">
+                        <div className="p-4 border-b">
+                            <h2 className="text-lg font-semibold">Chat</h2>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {messages.map((message, index) => (
                                 <div
-                                    className={`inline-block p-2 rounded-lg ${
+                                    key={index}
+                                    className={`mb-4 ${
                                         message.type === 'system'
-                                            ? 'bg-gray-100'
-                                            : message.sender._id === user._id
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-gray-200'
+                                            ? 'text-gray-500 text-sm'
+                                            : message.sender === user?.id
+                                            ? 'text-right'
+                                            : ''
                                     }`}
                                 >
-                                    {message.content}
+                                    {message.type === 'system' ? (
+                                        <div className="text-center text-gray-500 text-sm">
+                                            {message.content}
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className={`inline-block p-2 rounded-lg ${
+                                                message.sender === user?.id
+                                                    ? 'bg-blue-500 text-white'
+                                                    : 'bg-gray-200'
+                                            }`}
+                                        >
+                                            <div className="text-sm font-semibold">
+                                                {message.sender === user?.id ? 'You' : message.senderName}
+                                            </div>
+                                            <div>{message.content}</div>
+                                            <div className="text-xs opacity-75">
+                                                {new Date(message.timestamp).toLocaleTimeString()}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {new Date(message.timestamp).toLocaleTimeString()}
-                                </div>
-                            </div>
-                        ))}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Message input */}
-                    <form onSubmit={handleSendMessage} className="p-4 border-t">
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Type a message..."
-                                className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                                type="submit"
-                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                            >
-                                Send
-                            </button>
+                            ))}
+                            <div ref={messagesEndRef} />
                         </div>
-                    </form>
+
+                        <form onSubmit={handleSendMessage} className="p-4 border-t">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    placeholder="Type a message..."
+                                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+                                />
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                >
+                                    Send
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     );
 } 
+
+module.exports = {newSocket, Room: Room};

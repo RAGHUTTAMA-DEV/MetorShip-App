@@ -114,8 +114,6 @@ export async function updateBookingStatus(req, res) {
         // Update status
         booking.status = status;
         await booking.save();
-
-        // If booking is confirmed, create a room
         if (status === "confirmed") {
             const room = await RoomModel.create({
                 bookingId: booking._id,
@@ -182,8 +180,6 @@ export async function getBookings(req, res) {
         } = req.query;
 
         let query = {};
-        
-        // Role-based filtering
         if (role === 'mentor') {
             query.mentor = userId;
         } else if (role === 'learner') {
@@ -195,7 +191,6 @@ export async function getBookings(req, res) {
             ];
         }
 
-        // Status filtering
         if (status) {
             const validStatuses = ['requested', 'confirmed', 'rejected', 'completed'];
             if (validStatuses.includes(status)) {
@@ -206,8 +201,6 @@ export async function getBookings(req, res) {
                 });
             }
         }
-
-        // Date range filtering
         if (startDate || endDate) {
             query.date = {};
             if (startDate) {
@@ -217,8 +210,6 @@ export async function getBookings(req, res) {
                 query.date.$lte = new Date(endDate);
             }
         }
-
-        // Search term filtering (for mentor/learner names)
         if (searchTerm) {
             const searchQuery = {
                 $or: [
@@ -229,7 +220,6 @@ export async function getBookings(req, res) {
             query = { ...query, ...searchQuery };
         }
 
-        // Calculate skip value for pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         // Determine sort order
@@ -238,18 +228,14 @@ export async function getBookings(req, res) {
             [sortBy]: sortDirection
         };
 
-        // Get total count for pagination
         const totalCount = await BookingModel.countDocuments(query);
 
-        // Fetch bookings with pagination and sorting
         const bookings = await BookingModel.find(query)
             .populate('mentor', 'username email role')
             .populate('learner', 'username email role')
             .sort(sortOptions)
             .skip(skip)
             .limit(parseInt(limit));
-
-        // Get room IDs for confirmed bookings
         const roomIds = await Promise.all(
             bookings.map(async (booking) => {
                 if (booking.status === 'confirmed') {
