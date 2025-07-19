@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Whiteboard from './Whiteboard';
+import Webrtc from './Webrtc';
 
 export default function Room() {
     const { token, user } = useAuth();
@@ -198,6 +199,9 @@ export default function Room() {
                         <div className="h-full w-full">
                             <Whiteboard socket={socket} />
                         </div>
+                        <div className="mt-4">
+                            <Webrtc roomId={roomId} room={room} user={user} socket={socket} />
+                        </div>
                     </div>
                     <div className="w-80 bg-white shadow-lg flex flex-col min-h-0">
                         <div className="p-4 border-b">
@@ -266,4 +270,3 @@ export default function Room() {
     );
 } 
 
-module.exports = {newSocket, Room: Room};
