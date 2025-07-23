@@ -30,8 +30,12 @@ export function setupSocket(server) {
         }
     });
 
+    // Map userId to socket.id for direct signaling
+    const userSocketMap = {};
+
     io.on("connection", (socket) => {
         console.log("User connected:", socket.user.username);
+        userSocketMap[socket.user._id] = socket.id;
 
         socket.join(socket.user._id.toString());
 
@@ -461,48 +465,38 @@ export function setupSocket(server) {
             });
         });
 
-        socket.on("call-user",({userToCall,signalData, from})=>{
-            try{
-             const user = io.sockets.sockets.get(userToCall);
-             if(user){
-                 user.emit("call-made",{
-                     signal:signalData,
-                     from,
-                     name:socket.user.username
-                 });
-             } 
-             else{
-                    socket.emit("error", "User not available for call");
-             } 
-
-            }catch(err){
-                console.error("Call user error:", err);
-                socket.emit("error", "Error calling user");
-            }
-        })
-
-        socket.on("answer-call",({signal,to})=>{
-            try{
-                const signal= io.sockets.sockets.get(to);
-                if(signal){
-                    signal.emit("call-accepted",{
-                        signal,
-                        to:socket.user._id
-                    });
-                } else {
-                    socket.emit("error", "User not available to answer call");
-                }
-                 
-            }catch(err){
-                console.error("Answer call error:", err);
-                socket.emit("error", "Error answering call");
+        socket.on("call-user",({userToCall,signalData, from, roomId})=>{
+            console.log('call-user received:', {userToCall, from, roomId, senderSocket: socket.id});
+            const targetSocketId = userSocketMap[userToCall];
+            if (targetSocketId) {
+                io.to(targetSocketId).emit("call-made",{
+                    signal:signalData,
+                    from,
+                    name:socket.user.username
+                });
+            } else {
+                console.log('Target user socket not found for call-user:', userToCall);
             }
         });
-
+        socket.on("answer-call",({signal,to,roomId})=>{
+            console.log('answer-call received:', {to, roomId, senderSocket: socket.id});
+            const targetSocketId = userSocketMap[to];
+            if (targetSocketId) {
+                io.to(targetSocketId).emit("call-accepted",{
+                    signal,
+                    to:socket.user._id  
+                });
+            } else {
+                console.log('Target user socket not found for answer-call:', to);
+            }
+        });
         
+
+
 
         socket.on("disconnect", () => {
             console.log("User disconnected:", socket.user.username);
+            delete userSocketMap[socket.user._id];
         });
     });
 

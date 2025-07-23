@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
+import { ApiUrl } from '../configs';
 
 export default function MentorDashboard() {
     const { token, user, loading: authLoading } = useAuth();
@@ -18,7 +19,7 @@ export default function MentorDashboard() {
     useEffect(() => {
         if (!token) return;
 
-        const newSocket = io('https://metorship-app.onrender.com', {
+        const newSocket = io(ApiUrl, {
             auth: { token }
         });
 
@@ -53,7 +54,7 @@ export default function MentorDashboard() {
             });
 
             const response = await axios.get(
-                'https://metorship-app.onrender.com/api/booking',
+                `${ApiUrl}/booking`,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -93,7 +94,7 @@ export default function MentorDashboard() {
         try {
             console.log('Accepting booking:', bookingId);
             const response = await axios.put(
-                `https://metorship-app.onrender.com/api/booking/status/${bookingId}`,
+                `${ApiUrl}/booking/status/${bookingId}`,
                 {
                     status: 'confirmed',
                     mentorId: user.id
@@ -128,7 +129,7 @@ export default function MentorDashboard() {
             console.log('Rejecting booking:', bookingId);
 
             const response = await axios.put(
-                `https://metorship-app.onrender.com/api/booking/status/${bookingId}`,
+                `${ApiUrl}/booking/status/${bookingId}`,
                 { 
                     status: 'rejected',
                     mentorId: user.id

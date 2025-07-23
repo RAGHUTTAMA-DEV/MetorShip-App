@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
+import { ApiUrl } from '../configs';
 
 export default function LearnerDashboard() {
     const [bookings, setBookings] = useState([]);
@@ -23,7 +24,7 @@ export default function LearnerDashboard() {
 
     useEffect(() => {
         // Initialize socket connection
-        const newSocket = io('https://metorship-app.onrender.com', {
+        const newSocket = io(ApiUrl, {
             auth: { token }
         });
 
@@ -64,7 +65,7 @@ export default function LearnerDashboard() {
     const fetchMentors = async () => {
         try {
             const response = await axios.get(
-                'https://metorship-app.onrender.com/api/auth/mentors',
+                `${ApiUrl}/auth/mentors`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -81,7 +82,7 @@ export default function LearnerDashboard() {
     const fetchBookings = async () => {
         try {
             const response = await axios.get(
-                "https://metorship-app.onrender.com/api/booking",
+                `${ApiUrl}/booking`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -153,7 +154,7 @@ export default function LearnerDashboard() {
             setError('');
 
             const response = await axios.post(
-                "https://metorship-app.onrender.com/api/booking/create",
+                `${ApiUrl}/booking/create`,
                 formData,
                 {
                     headers: {
@@ -188,7 +189,7 @@ export default function LearnerDashboard() {
             setError('');
 
             const response = await axios.put(
-                `https://metorship-app.onrender.com/api/booking/${bookingId}/status`,
+                `${ApiUrl}/booking/${bookingId}/status`,
                 { status: 'cancelled' },
                 {
                     headers: {

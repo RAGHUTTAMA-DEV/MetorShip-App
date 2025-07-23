@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Whiteboard from './Whiteboard';
 import Webrtc from './Webrtc';
+import { ApiUrl } from '../configs';
 
 export default function Room() {
     const { token, user } = useAuth();
@@ -25,7 +26,7 @@ export default function Room() {
         }
         const fetchRoomDetails = async () => {
             try {
-                const response = await fetch(`https://metorship-app.onrender.com/api/rooms/${roomId}`, {
+                const response = await fetch(`${ApiUrl}/rooms/${roomId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -37,9 +38,6 @@ export default function Room() {
 
                 const data = await response.json();
                 setRoom(data.room);
-                if (socket) {
-                    socket.emit('room:join', roomId);
-                }
             } catch (err) {
                 console.error('Error fetching room:', err);
                 setError('Failed to load room details');
@@ -49,14 +47,20 @@ export default function Room() {
         };
 
         fetchRoomDetails();
-        const newSocket = io('https://metorship-app.onrender.com', {
+        console.log("ApiUrl");
+        const newSocket = io("http://localhost:3000", {
             auth: { token }
         });
 
         newSocket.on('connect', () => {
             console.log('Socket connected');
-            // Join the room
+            setSocket(newSocket);
             newSocket.emit('room:join', roomId);
+        });
+
+        newSocket.on('connect_error', (err) => {
+            console.error('Socket connect_error:', err);
+            setError('Socket connection failed.');
         });
 
         newSocket.on('error', (error) => {
@@ -92,8 +96,6 @@ export default function Room() {
             setMessages(prev => [...prev, message]);
         });
 
-        setSocket(newSocket);
-
         return () => {
             newSocket.emit('room:leave', roomId);
             newSocket.disconnect();
@@ -107,19 +109,22 @@ export default function Room() {
     const handleSendMessage = (e) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
-
-        socket?.emit('chat:message', {
+        if (!socket || !socket.connected) {
+            setError('Socket not connected. Cannot send message.');
+            return;
+        }
+        console.log('Emitting chat:message', { roomId, content: newMessage });
+        socket.emit('chat:message', {
             roomId,
             content: newMessage,
             type: 'text'
         });
-
         setNewMessage('');
     };
 
     const handleEndSession = async () => {
         try {
-            const response = await fetch(`https://metorship-app.onrender.com/api/rooms/${roomId}/end`, {
+            const response = await fetch(`${ApiUrl}/rooms/${roomId}/end`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -138,8 +143,8 @@ export default function Room() {
         }
     };
 
-    if (loading) {
-        return <div>Loading room...</div>;
+    if (loading || !socket || !socket.connected) {
+        return <div className="flex items-center justify-center h-screen text-gray-500">Connecting to room and socket...</div>;
     }
 
     if (error) {
@@ -199,9 +204,11 @@ export default function Room() {
                         <div className="h-full w-full">
                             <Whiteboard socket={socket} />
                         </div>
-                        <div className="mt-4">
-                            <Webrtc roomId={roomId} room={room} user={user} socket={socket} />
+
+                        <div>
+                            <Webrtc socket={socket} roomId={roomId} room={room} user={user} />
                         </div>
+                       
                     </div>
                     <div className="w-80 bg-white shadow-lg flex flex-col min-h-0">
                         <div className="p-4 border-b">

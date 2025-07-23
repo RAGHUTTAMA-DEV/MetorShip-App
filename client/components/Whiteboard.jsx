@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-export default function Whiteboard({ socket }) {
+export default function Whiteboard({ socket, roomId: propRoomId }) {
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawingColor, setDrawingColor] = useState('#000000');
@@ -30,10 +30,8 @@ export default function Whiteboard({ socket }) {
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         
-        // Scale the drawing context so everything draws at the correct size
         ctx.scale(dpr, dpr);
         
-        // Set drawing properties for smooth drawing
         ctx.strokeStyle = drawingColor;
         ctx.lineWidth = lineWidth;
         ctx.lineCap = 'round';
@@ -128,13 +126,18 @@ export default function Whiteboard({ socket }) {
             if (currentStroke) {
                 currentStroke.points.push(coords);
                 
-                socket?.emit('whiteboard:drawing', {
-                    roomId: window.location.pathname.split('/').pop(),
-                    point: coords,
-                    color: drawingColor,
-                    width: lineWidth,
-                    strokeId: currentStroke.id
-                });
+                if (socket && socket.connected) {
+                    console.log('Emitting whiteboard:drawing', { roomId: getRoomId(), point: coords });
+                    socket.emit('whiteboard:drawing', {
+                        roomId: getRoomId(),
+                        point: coords,
+                        color: drawingColor,
+                        width: lineWidth,
+                        strokeId: currentStroke.id
+                    });
+                } else {
+                    console.error('Socket not connected. Cannot emit whiteboard:drawing');
+                }
             }
         }
         
@@ -182,22 +185,25 @@ export default function Whiteboard({ socket }) {
         
         if (currentStroke && currentStroke.points.length > 0) {
             strokesRef.current.push(currentStroke);
-            socket?.emit('whiteboard:stroke', {
-                roomId: window.location.pathname.split('/').pop(),
-                stroke: currentStroke
-            });
+            if (socket && socket.connected) {
+                console.log('Emitting whiteboard:stroke', { roomId: getRoomId(), stroke: currentStroke });
+                socket.emit('whiteboard:stroke', {
+                    roomId: getRoomId(),
+                    stroke: currentStroke
+                });
+            } else {
+                console.error('Socket not connected. Cannot emit whiteboard:stroke');
+            }
         }
         
         setCurrentStroke(null);
     }, [isDrawing, isLocked, currentStroke, socket]);
 
-    // Initialize canvas and event listeners
     useEffect(() => {
         if (!canvasRef.current) return;
 
         const canvas = canvasRef.current;
         
-        // Initial setup
         resizeCanvas();
         
         // Event handlers
@@ -221,22 +227,19 @@ export default function Whiteboard({ socket }) {
             stopDrawing();
         };
         
-        // Mouse events
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
         canvas.addEventListener('mouseleave', handleMouseLeave);
         
-        // Touch events for mobile
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
         canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
         canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
         
-        // Window resize
         window.addEventListener('resize', resizeCanvas);
         
-        // Socket event listeners
         socket?.on('whiteboard:drawing', ({ point, color, width, strokeId }) => {
+            console.log('Received whiteboard:drawing', { point, color, width, strokeId });
             if (!point || isClearedRef.current) return;
             
             const ctx = ctxRef.current;
@@ -258,6 +261,7 @@ export default function Whiteboard({ socket }) {
         });
 
         socket?.on('whiteboard:stroke', ({ stroke }) => {
+            console.log('Received whiteboard:stroke', { stroke });
             if (!stroke || !stroke.points || !Array.isArray(stroke.points) || isClearedRef.current) return;
             
             strokesRef.current.push(stroke);
@@ -275,7 +279,6 @@ export default function Whiteboard({ socket }) {
                 ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
                 
                 if (stroke.points.length > 2) {
-                    // Draw smooth curves
                     for (let i = 1; i < stroke.points.length - 1; i++) {
                         const currentPoint = stroke.points[i];
                         const nextPoint = stroke.points[i + 1];
@@ -293,7 +296,6 @@ export default function Whiteboard({ socket }) {
                 
                 ctx.stroke();
                 
-                // Restore previous style
                 ctx.strokeStyle = previousStyle;
                 ctx.lineWidth = previousWidth;
             }
@@ -316,9 +318,8 @@ export default function Whiteboard({ socket }) {
             setLockedBy(locker);
         });
 
-        // Request history when component mounts
         socket?.emit('whiteboard:requestHistory', {
-            roomId: window.location.pathname.split('/').pop()
+            roomId: getRoomId()
         });
 
         socket?.on('whiteboard:history', (data) => {
@@ -329,7 +330,6 @@ export default function Whiteboard({ socket }) {
         });
 
         return () => {
-            // Cleanup event listeners
             canvas.removeEventListener('mousedown', handleMouseDown);
             canvas.removeEventListener('mousemove', handleMouseMove);
             canvas.removeEventListener('mouseup', handleMouseUp);
@@ -339,7 +339,6 @@ export default function Whiteboard({ socket }) {
             canvas.removeEventListener('touchend', handleTouchEnd);
             window.removeEventListener('resize', resizeCanvas);
             
-            // Remove socket listeners
             socket?.off('whiteboard:drawing');
             socket?.off('whiteboard:stroke');
             socket?.off('whiteboard:cleared');
@@ -348,7 +347,6 @@ export default function Whiteboard({ socket }) {
         };
     }, [socket, resizeCanvas, startDrawing, draw, stopDrawing, redrawStrokes]);
 
-    // Update canvas properties when drawing settings change
     useEffect(() => {
         if (ctxRef.current) {
             ctxRef.current.strokeStyle = drawingColor;
@@ -369,17 +367,19 @@ export default function Whiteboard({ socket }) {
         }
         isClearedRef.current = true;
         strokesRef.current = [];
-        socket.emit('whiteboard:clear', window.location.pathname.split('/').pop());
+        socket.emit('whiteboard:clear', getRoomId());
     };
 
     const handleLock = () => {
         if (!socket) return;
         const newLockState = !isLocked;
         socket.emit('whiteboard:lock', {
-            roomId: window.location.pathname.split('/').pop(),
+            roomId: getRoomId(),
             locked: newLockState
         });
     };
+
+    const getRoomId = () => propRoomId || window.location.pathname.split('/').pop();
 
     return (
         <div className="bg-white rounded-lg shadow-lg h-full relative overflow-hidden">

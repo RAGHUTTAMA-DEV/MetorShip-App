@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { ApiUrl } from '../configs';
 
 export default function Booking() {
     const { token, user } = useAuth();
@@ -24,7 +25,7 @@ export default function Booking() {
 
     const fetchMentors = async () => {
         try {
-            const response = await axios.get('https://metorship-app.onrender.com/api/auth/mentors', {
+            const response = await axios.get(`${ApiUrl}/auth/mentors`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -51,7 +52,7 @@ export default function Booking() {
 
     const fetchAvailableSlots = async (mentorId) => {
         try {
-            const response = await axios.get(`https://metorship-app.onrender.com/api/auth/mentor/${mentorId}/slots`, {
+            const response = await axios.get(`${ApiUrl}/auth/mentor/${mentorId}/slots`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -71,7 +72,7 @@ export default function Booking() {
 
         try {
             const response = await axios.post(
-                'https://metorship-app.onrender.com/api/booking/create',
+                    `${ApiUrl}/booking/create`,
                 {
                     ...formData,
                     userId: user.id

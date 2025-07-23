@@ -1,3 +1,7 @@
+import { Buffer } from 'buffer';
+import process from 'process';
+window.Buffer = Buffer;
+window.process = process;
 window.global = window;
 import React from 'react';
 import ReactDOM from 'react-dom/client';

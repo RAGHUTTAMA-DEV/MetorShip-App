@@ -8,10 +8,28 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  resolve: {
+    alias: {
+      stream: 'stream-browserify',
+      buffer: 'buffer',
+      process: 'process/browser',
+      events: 'events/',
+      util: 'util/',
+    },
+  },
   optimizeDeps: {
+    include: [
+      'buffer',
+      'process',
+      'stream-browserify',
+      'events',
+      'util',
+    ],
     esbuildOptions: {
       define: {
         global: 'globalThis',
+        process: 'process',
+        Buffer: 'Buffer',
       },
     },
   },
@@ -19,5 +37,8 @@ export default defineConfig({
     rollupOptions: {
       plugins: [nodePolyfills()],
     },
+  },
+  define: {
+    'process.env': {},
   },
 })

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { ApiUrl } from '../configs';
 
 const AuthContext = createContext(null);
 
@@ -30,7 +31,7 @@ export const AuthProvider = ({ children }) => {
                     }
 
                     const response = await axios.get(
-                        `https://metorship-app.onrender.com/api/auth/profile/${userId}`,
+                        `${ApiUrl}/auth/profile/${userId}`,
                         {
                             headers: {
                                 Authorization: `Bearer ${storedToken}`
@@ -60,7 +61,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            const response = await axios.post('https://metorship-app.onrender.com/api/auth/login', {
+            const response = await axios.post(`${ApiUrl}/auth/login`, {
                 email,
                 password
             });
@@ -79,7 +80,7 @@ export const AuthProvider = ({ children }) => {
 
     const signup = async (userData) => {
         try {
-            const response = await axios.post('https://metorship-app.onrender.com/api/auth/signup', userData);
+            const response = await axios.post(`${ApiUrl}/auth/signup`, userData);
             const { token, user } = response.data;
             localStorage.setItem('token', token);
             setToken(token);

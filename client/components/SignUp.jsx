@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+        import { ApiUrl } from "../configs";
 
 export default function Signup() {
     const navigate = useNavigate();

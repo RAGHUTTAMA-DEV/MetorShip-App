@@ -1,6 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { ApiUrl } from '../configs';
 
 export default function Home() {
     const { user } = useAuth();

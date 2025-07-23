@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { ApiUrl } from '../configs';
 
 export default function Profile() {
     const { user, token } = useAuth();
@@ -25,7 +26,7 @@ export default function Profile() {
         const fetchProfile = async () => {
             try {
                 const response = await axios.get(
-                    `https://metorship-app.onrender.com/api/auth/profile/${user.id}`,
+                    `${ApiUrl}/auth/profile/${user.id}`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`
@@ -126,7 +127,7 @@ export default function Profile() {
 
         try {
             const response = await axios.put(
-                `https://metorship-app.onrender.com/api/auth/update/${user.id}`,
+                    `${ApiUrl}/auth/update/${user.id}`,
                 formData,
                 {
                     headers: {
