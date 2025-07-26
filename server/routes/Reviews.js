@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(middleware);
 
-router.post("/reviews", createReview);
+router.post("/", createReview);
 router.get("/mentors/:id", getReview);
 router.get("/:myreviews", getMyReviews);
 

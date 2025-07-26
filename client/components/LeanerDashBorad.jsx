@@ -20,6 +20,8 @@ export default function LearnerDashboard() {
         date: '',
         slot: ''
     });
+    const [selectedBookingForReview, setSelectedBookingForReview] = useState(null);
+    const [showReviewComponent, setShowReviewComponent] = useState(false);
     const { token, user } = useAuth();
     const navigate = useNavigate();
 
@@ -61,7 +63,7 @@ export default function LearnerDashboard() {
     useEffect(() => {
         fetchBookings();
         fetchMentors();
-    }, [bookings,mentors]);
+    }, []);
 
     const fetchMentors = async () => {
         try {
@@ -235,6 +237,56 @@ export default function LearnerDashboard() {
         }
     };
 
+    const handleReviewClick = (booking) => {
+        console.log("Selected booking for review:", booking);
+        console.log("Available mentors:", mentors);
+        setSelectedBookingForReview(booking);
+        setShowReviewComponent(true);
+    };
+
+    const handleReviewSubmitted = () => {
+        setShowReviewComponent(false);
+        setSelectedBookingForReview(null);
+        fetchBookings(); // Refresh bookings to update review status
+    };
+
+    const handleBackToDashboard = () => {
+        setShowReviewComponent(false);
+        setSelectedBookingForReview(null);
+    };
+
+    // Check if a booking is completed (can be reviewed)
+    const isBookingCompleted = (booking) => {
+        const bookingDate = new Date(booking.date);
+        const today = new Date();
+        return booking.status === 'confirmed' && bookingDate < today;
+    };
+
+    // If showing review component
+    if (showReviewComponent && selectedBookingForReview) {
+        return (
+            <div className="max-w-7xl mx-auto p-6">
+                <div className="mb-6">
+                    <button
+                        onClick={handleBackToDashboard}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                    >
+                        ← Back to Dashboard
+                    </button>
+                </div>
+                <Review 
+                    bookingId={selectedBookingForReview.id || selectedBookingForReview._id}
+                    mentor={
+                        typeof selectedBookingForReview.mentor === 'object'
+                            ? selectedBookingForReview.mentor
+                            : mentors.find(m => m.id === selectedBookingForReview.mentor || m._id === selectedBookingForReview.mentor)
+                    }
+                    onReviewSubmitted={handleReviewSubmitted}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-7xl mx-auto p-6">
             <h1 className="text-3xl font-bold mb-6">Learner Dashboard</h1>
@@ -324,15 +376,11 @@ export default function LearnerDashboard() {
                             {loading ? 'Creating Booking...' : 'Create Booking'}
                         </button>
                     </div>
-
-                    <div>
-                        
-                    </div>
                 </form>
             </div>
 
             <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Upcoming Sessions</h2>
+                <h2 className="text-2xl font-semibold mb-4">Your Sessions</h2>
                 {bookings.length > 0 ? (
                     <div className="grid gap-4">
                         {bookings.map((booking) => (
@@ -345,7 +393,7 @@ export default function LearnerDashboard() {
                                         <p className="text-gray-600">Status: {booking.status}</p>
                                     </div>
                                     <div className="flex gap-2">
-                                        {booking.status === 'confirmed' && (
+                                        {booking.status === 'confirmed' && !isBookingCompleted(booking) && (
                                             <button
                                                 onClick={() => handleJoinRoom(booking._id || booking.id)}
                                                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -361,13 +409,21 @@ export default function LearnerDashboard() {
                                                 Cancel
                                             </button>
                                         )}
+                                        {isBookingCompleted(booking) && (
+                                            <button
+                                                onClick={() => handleReviewClick(booking)}
+                                                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                                            >
+                                                Review Session
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-gray-600">No upcoming sessions</p>
+                    <p className="text-gray-600">No sessions found</p>
                 )}
             </div>
         </div>
