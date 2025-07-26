@@ -57,6 +57,11 @@ const userSchema = new mongoose.Schema({
     experience: {
         type: String,
         default: ""
+    },
+    reviews:{
+        type: Array,
+        default: [],
+        ref: "Review"
     }
 });
 

@@ -83,3 +83,27 @@ export async function getReview(req, res) {
         });
     }
 }
+
+export async function getMyReviews(req, res) {
+    try{
+        const {id}=req.userId;
+        const reviews=await UserModel.findById(id).populate("reviews");
+        if(!reviews){
+            return res.status(404).json({
+                message: "No reviews found"
+            });
+        }
+        res.status(200).json({
+            message: "My reviews fetched successfully",
+            reviews
+        });
+    }catch(err){
+        console.error("Get my reviews error:", err);
+        res.status(500).json({
+            message: "Error fetching my reviews",
+            error: err.message
+        });
+    }
+
+    
+}
