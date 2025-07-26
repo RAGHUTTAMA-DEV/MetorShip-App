@@ -197,3 +197,19 @@ export async function GetMentors(req,res){
     }
 }
 
+
+export async function GetAvailability(req,res){
+    try{
+        const mentorid = req.params.id;
+        const mentor =await UserModel.findOne({ _id: mentorid }).populate('availability');
+        return res.status(200).json({
+            message: "Availability fetched successfully",
+            availability: mentor.availability
+        })
+    }catch(err){
+        console.error("GetAvailability error:", err);
+        return res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+}

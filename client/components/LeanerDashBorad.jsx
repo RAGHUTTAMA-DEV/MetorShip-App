@@ -5,6 +5,8 @@ import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 import { ApiUrl } from '../configs';
 import Review from "./Review";
+import AllMentorsDetails from "./mentordetails";
+import Booking from "./Booking";
 
 export default function LearnerDashboard() {
     const [bookings, setBookings] = useState([]);
@@ -22,11 +24,10 @@ export default function LearnerDashboard() {
     });
     const [selectedBookingForReview, setSelectedBookingForReview] = useState(null);
     const [showReviewComponent, setShowReviewComponent] = useState(false);
-    const { token, user } = useAuth();
+     const { token } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Initialize socket connection
         const newSocket = io(ApiUrl, {
             auth: { token }
         });
@@ -128,7 +129,6 @@ export default function LearnerDashboard() {
         }
 
         try {
-            // For now, let's use a default set of slots since the endpoint is not available
             const defaultSlots = [
                 '09:00 AM - 10:00 AM',
                 '10:00 AM - 11:00 AM',
@@ -254,15 +254,12 @@ export default function LearnerDashboard() {
         setShowReviewComponent(false);
         setSelectedBookingForReview(null);
     };
-
-    // Check if a booking is completed (can be reviewed)
     const isBookingCompleted = (booking) => {
         const bookingDate = new Date(booking.date);
         const today = new Date();
         return booking.status === 'confirmed' && bookingDate < today;
     };
 
-    // If showing review component
     if (showReviewComponent && selectedBookingForReview) {
         return (
             <div className="max-w-7xl mx-auto p-6">
@@ -290,6 +287,10 @@ export default function LearnerDashboard() {
     return (
         <div className="max-w-7xl mx-auto p-6">
             <h1 className="text-3xl font-bold mb-6">Learner Dashboard</h1>
+            {/* Mentor Cards */}
+            <div className="mb-10">
+                <AllMentorsDetails />
+            </div>
 
             {error && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
@@ -306,78 +307,6 @@ export default function LearnerDashboard() {
                     {message}
                 </div>
             )}
-
-            <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Book a Session</h2>
-                <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Select Mentor
-                            </label>
-                            <select
-                                name="mentor"
-                                value={formData.mentor}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            >
-                                <option value="">Select a mentor</option>
-                                {mentors.map(mentor => (
-                                    <option key={mentor._id} value={mentor._id}>
-                                        {mentor.username}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Select Date
-                            </label>
-                            <input
-                                type="date"
-                                name="date"
-                                value={formData.date}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Select Time Slot
-                            </label>
-                            <select
-                                name="slot"
-                                value={formData.slot}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                                disabled={!formData.mentor}
-                            >
-                                <option value="">Select a time slot</option>
-                                {availableSlots.map(slot => (
-                                    <option key={slot} value={slot}>
-                                        {slot}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="mt-6">
-                        <button
-                            type="submit"
-                            disabled={loading || !formData.mentor || !formData.date || !formData.slot}
-                            className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
-                        >
-                            {loading ? 'Creating Booking...' : 'Create Booking'}
-                        </button>
-                    </div>
-                </form>
-            </div>
 
             <div className="mb-8">
                 <h2 className="text-2xl font-semibold mb-4">Your Sessions</h2>
