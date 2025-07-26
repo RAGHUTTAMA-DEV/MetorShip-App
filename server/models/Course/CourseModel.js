@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import UserModel from '../User/UserModel';
 
 
 const courseSchema =new mongoose.Schema({

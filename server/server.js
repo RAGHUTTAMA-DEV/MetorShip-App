@@ -10,7 +10,7 @@ import bookingRoutes from "./routes/Booking.js"
 import roomRoutes from "./routes/Room.js"
 import { setupSocket } from "./socket.js";
 import reviewsRoutes from "./routes/Reviews.js"
-
+import courseRouter from "./routes/Course/Course.js"
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -36,7 +36,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/reviews", reviewsRoutes);
-
+app.use("/api/courses", courseRouter);
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
