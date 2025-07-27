@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 
 
 const sectionSchema =new mongoose.Schema({
-
     courseId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:'Course',
@@ -27,7 +26,6 @@ const sectionSchema =new mongoose.Schema({
     },
     videoUrl:{
         type:String,
-        required:true,
     },
     noteUrl:{
         type:String,

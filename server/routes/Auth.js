@@ -7,7 +7,7 @@ const router = express.Router();
 router.post("/login", Login);
 router.post("/signup", Register);
 router.get("/profile/:id",middleware, Profile);
-router.put("/update/:id",middleware, Update);
+router.put("/update",middleware, Update);
 router.get("/mentors",middleware, GetMentors);
 router.get('/mentors/availability/:id',GetAvailability)
 

@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema({
         type: Array,
         default: []
     },
+    expertise: {
+        type: String,
+        default: ""
+    },
     bio: {
         type: String,
         default: ""
@@ -44,15 +48,25 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    phone: {
+        type: String,
+        default: ""
+    },
+    website: {
+        type: String,
+        default: ""
+    },
+    linkedin: {
+        type: String,
+        default: ""
+    },
+    github: {
+        type: String,
+        default: ""
+    },
     availability: {
-        day: {
-            type: String,
-            default: ""
-        },
-        slots: {
-            type: Array,
-            default: []
-        }
+        type: Array,
+        default: []
     },
     experience: {
         type: String,

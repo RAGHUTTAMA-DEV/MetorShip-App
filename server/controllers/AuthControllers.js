@@ -129,10 +129,10 @@ export async function Profile(req, res) {
 
 export async function Update(req, res) {
     try {
-        const { id } = req.params;
+        const userId = req.user._id || req.user.id;
         const data = req.body;
 
-        const user = await UserModel.findById(id);
+        const user = await UserModel.findById(userId);
 
         if (!user) {
             return res.status(404).json({
@@ -141,8 +141,9 @@ export async function Update(req, res) {
         }
 
         const allowedUpdates = [
-            'bio', 'skills', 'location', 'availability', 
-            'experience', 'avatarUrl', 'isActive'
+            'username', 'email', 'bio', 'skills', 'location', 'availability', 
+            'experience', 'avatarUrl', 'isActive', 'phone', 'website', 
+            'linkedin', 'github', 'expertise'
         ];
         
         const updates = {};
@@ -153,7 +154,7 @@ export async function Update(req, res) {
         });
 
         const updatedUser = await UserModel.findByIdAndUpdate(
-            id,
+            userId,
             updates,
             { new: true, runValidators: true }
         );
@@ -167,7 +168,12 @@ export async function Update(req, res) {
                 role: updatedUser.role,
                 bio: updatedUser.bio,
                 skills: updatedUser.skills,
+                expertise: updatedUser.expertise,
                 location: updatedUser.location,
+                phone: updatedUser.phone,
+                website: updatedUser.website,
+                linkedin: updatedUser.linkedin,
+                github: updatedUser.github,
                 availability: updatedUser.availability,
                 experience: updatedUser.experience,
                 updatedAt: updatedUser.updatedAt

@@ -5,6 +5,7 @@ import Signup from '../components/SignUp';
 import MentorDashboard from '../components/MentorDashBorad';
 import LearnerDashboard from '../components/LeanerDashBorad';
 import Room from '../components/Room';
+import UpdateForm from '../components/UpdateForm';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
 
@@ -17,6 +18,14 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Signup />} />
               <Route path="/unauthorized" element={<div>Unauthorized Access</div>} />
+              <Route 
+                path="/updates" 
+                element={
+                  <ProtectedRoute>
+                    <UpdateForm />
+                  </ProtectedRoute>
+                } 
+              />
               <Route 
                 path="/mentor-dashboard" 
                 element={
