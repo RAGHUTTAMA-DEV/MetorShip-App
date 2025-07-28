@@ -14,6 +14,7 @@ export default function MentorCourseDash() {
   const [thumbnail, setThumbnail] = useState('');
   const [error, setError] = useState('');
   const [courses, setCourses] = useState([]);
+  const [mycourses,SetmyCourses]=useState([]);
   const { user } = useAuth();
 
   const CreateCall = async (e) => {
@@ -57,9 +58,23 @@ export default function MentorCourseDash() {
       console.log(error);
     }
   };
+  //for the mentor not the learner
+  const GetMyCourses = async ()=>{
+     try{
+        const res =await axios.get(`${ApiUrl}/courses/my-courses`);
+        SetmyCourses(res.data.data || []);
+        toast.success('Courses Fetched Successfully');
+     }catch(err){
+         console.log(err);
+     setError(err.message);
+     toast.error('Error Fetching Courses');
+
+     }
+  }
 
   useEffect(() => {
     GetALLCourses();
+    GetMyCourses();
   }, []);
 
   return (
@@ -136,6 +151,23 @@ export default function MentorCourseDash() {
         ) : (
           <p>No courses found.</p>
         )}
+      </div>
+
+      <div>
+        <h3>My Courses</h3>
+        {mycourses.length>0 && mycourses.map((course, idx) =>{
+            <ul key={idx} style={{ border: "1px solid gray", padding: "10px", marginBottom: "10px" }}>
+              <li><strong>Title:</strong> {course.title}</li>
+              <li><strong>Price:</strong> {course.price}</li>
+              <li><strong>Category:</strong> {course.category}</li>
+              <li><img src={course.thumbnail}/></li>
+              <li><strong>Status:</strong> {course.isActive ? "Active" : "Inactive"}</li>
+              <li><strong>Sections:</strong> {Array.isArray(course.sections) ? course.sections.join(", ") : course.sections}</li>
+
+
+            </ul>
+        })}
+
       </div>
     </div>
   );

@@ -24,7 +24,7 @@ export async function CreateSection(req,res){
 export async function GetSection(req,res){
    try{
     const {id}=req.params;
-    const section =await SectionModel.findById(id);
+    const section =await SectionModel.find({courseId:id});
     if(!section){
         return res.status(400).json({message:"Section not found"})
     }

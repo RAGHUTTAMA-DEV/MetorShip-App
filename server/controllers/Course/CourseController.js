@@ -153,7 +153,7 @@ export async function GetCourseSections(req,res){
 
 export async function GetMyCourse(req,res){
     try{ 
-        const mentorId =req.user._id;
+        const mentorId =req.userId;
         const courses =await CourseModel.find({instructorId:mentorId});
         if(!courses){
              res.status(400).json({

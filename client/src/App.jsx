@@ -9,6 +9,8 @@ import UpdateForm from '../components/UpdateForm';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
 import MentorCourseDash from '../components/Course/pages/mentorCourse';
+import UserCourseDash from '../components/Course/pages/UserCoursel';
+import CourseSection from '../components/Course/pages/CourseSection';
 function App() {
   return (
       <AuthProvider>
@@ -62,8 +64,12 @@ function App() {
 
               
                  <Route path='/Course-mentor' element={<MentorCourseDash />} />
-                 <Route path='/Course-learner' element={<MentorCourseDash />} />
-        
+                 <Route path='/Course-learner' element={
+                  <ProtectedRoute>
+                     <UserCourseDash />
+                  </ProtectedRoute>
+                 } />
+                 <Route path='/course-section/:courseId' element={<CourseSection />} />
             </Routes>
           </Router>
       </AuthProvider>
