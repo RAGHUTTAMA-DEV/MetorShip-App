@@ -8,7 +8,7 @@ import Room from '../components/Room';
 import UpdateForm from '../components/UpdateForm';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../context/AuthContext';
-
+import MentorCourseDash from '../components/Course/pages/mentorCourse';
 function App() {
   return (
       <AuthProvider>
@@ -59,6 +59,11 @@ function App() {
 
               
               <Route path="*" element={<Navigate to="/" replace />} />
+
+              
+                 <Route path='/Course-mentor' element={<MentorCourseDash />} />
+                 <Route path='/Course-learner' element={<MentorCourseDash />} />
+        
             </Routes>
           </Router>
       </AuthProvider>

@@ -150,3 +150,26 @@ export async function GetCourseSections(req,res){
         })
     }
 }
+
+export async function GetMyCourse(req,res){
+    try{ 
+        const mentorId =req.user._id;
+        const courses =await CourseModel.find({instructorId:mentorId});
+        if(!courses){
+             res.status(400).json({
+                 message:"Courses not found",
+                 success:false,
+             })
+        }
+        res.status(200).json({
+            message:"Courses fetched successfully",
+            success:true,
+            data:courses,
+        })
+    }catch(err){
+        res.status(500).json({
+            message:err.message,
+            success:false,
+        })
+    }
+}
