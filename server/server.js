@@ -11,6 +11,8 @@ import roomRoutes from "./routes/Room.js"
 import { setupSocket } from "./socket.js";
 import reviewsRoutes from "./routes/Reviews.js"
 import courseRouter from "./routes/Course/Course.js"
+import sectionrouter from "./routes/Course/Section.js"
+import purchaserouter from "./routes/Course/Purchases.js"
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -37,6 +39,8 @@ app.use("/api/booking", bookingRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/reviews", reviewsRoutes);
 app.use("/api/courses", courseRouter);
+app.use('/api/sections',sectionrouter)
+app.use('/api/purchase',purchaserouter)
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {

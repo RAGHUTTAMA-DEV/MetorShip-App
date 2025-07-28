@@ -8,5 +8,6 @@ router.get('/',GetAllCourses);
 router.get('/:id',GetCourseById);
 router.put('/:id',UpdateCourse);
 router.delete('/:id',DeleteCourse);
+router.get('/sections/:courseId',GetAllCourses);
 
 export default router;

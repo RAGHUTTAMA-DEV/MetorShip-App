@@ -1,9 +1,15 @@
-import SectionModel from "../../models/Course/SectionModel"
+import SectionModel from "../../models/Course/SectionModel.js"
 
 export async function CreateSection(req,res){
    try{ 
-       const {courseId,title,order,videoUrl,noteUrl}=req.body;
-       const section =await SectionModel.create(req.body);
+       const {title,order}=req.body;
+       const courseId=req.params.id;
+
+       const section =await SectionModel.create({
+           title,
+           order,
+           courseId,
+       });
        if(!section){
            res.status(400).json({message:"Section not created"})
        }
@@ -17,10 +23,10 @@ export async function CreateSection(req,res){
 
 export async function GetSection(req,res){
    try{
-    const {courseId}=req.params;
-    const section =await SectionModel.find({courseId:courseId});
+    const {id}=req.params;
+    const section =await SectionModel.findById(id);
     if(!section){
-        res.status(400).json({message:"Section not found"})
+        return res.status(400).json({message:"Section not found"})
     }
     res.status(200).json({message:"Section found successfully",section})
 

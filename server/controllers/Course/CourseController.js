@@ -1,4 +1,5 @@
 import CourseModel from "../../models/Course/CourseModel.js";
+import SectionModel from "../../models/Course/SectionModel.js";
 export async function CreateCourse(req,res){
    try{
     const {title,description,price,instructor,isActive,category,tags,thumbnail}=req.body;
@@ -131,4 +132,21 @@ export async function DeleteCourse(req,res){
         })
     }
     
+}
+
+export async function GetCourseSections(req,res){
+    try{
+       const {courseId}=req.params;
+       const sections=await SectionModel.find({courseId:courseId});
+       res.status(200).json({
+           message:"Sections fetched successfully",
+           success:true,
+           data:sections,
+       })
+    }catch(err){
+        res.status(500).json({
+            message:err.message,
+            success:false,
+        })
+    }
 }

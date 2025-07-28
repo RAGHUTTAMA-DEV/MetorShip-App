@@ -1,7 +1,7 @@
-import CourseModel from "../../models/Course/CourseModel";
+import CourseModel from "../../models/Course/CourseModel.js";
 export async function PurchaseCourse(req,res){
     try{
-      const {courseId,paymentId,paymentstatus,amont,purchaseStatus} = req.body;      const user =req.user;
+      const {courseId,paymentId,amont,purchaseStatus} = req.body;      const user =req.user;
       const course = await CourseModel.findById(courseId);
       if(course){
         const purchasedCourse = await CourseModel.findByIdAndUpdate(courseId,{
@@ -10,9 +10,10 @@ export async function PurchaseCourse(req,res){
             },
             $set:{
                 purchaseStatus,
+                
             }
         })
-        res.status(200).json({message:"Course Purchased Successfully"})
+        res.status(200).json({message:"Course Purchased Successfully",paymentId,amont,purchaseStatus,purchasedCourse})
       }
     }catch(err){
         res.status(500).json({error:err.message})
