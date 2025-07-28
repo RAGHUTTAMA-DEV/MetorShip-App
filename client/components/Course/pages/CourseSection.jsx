@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { ApiUrl } from '../../../configs';
-
-
+import FilesView from './FilesView';
 export default function CourseSection({ courseId }) {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,23 +34,21 @@ export default function CourseSection({ courseId }) {
         <div>No sections found for this course.</div>
       ) : (
         sections.map((section, idx) => (
-          <div key={section._id || idx} style={{ border: '1px solid #ccc', margin: '10px 0', padding: '10px' }}>
+          <div 
+            key={section._id || idx} 
+            style={{ 
+              border: '1px solid #ccc', 
+              margin: '20px 0', 
+              padding: '20px',
+              borderRadius: '8px'
+            }}
+          >
             <h3>{section.title}</h3>
-            {section.videoUrl && (
-              <div>
-                <strong>Video:</strong>
-                <video width="400" controls>
-                  <source src={section.videoUrl} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-            )}
-            {section.noteUrl && (
-              <div>
-                <strong>Notes:</strong>
-                <a href={section.noteUrl} target="_blank" rel="noopener noreferrer">Download/View Notes</a>
-              </div>
-            )}
+            
+            <FilesView 
+              courseId={courseId} 
+              sectionId={section._id} 
+            />
           </div>
         ))
       )}

@@ -14,9 +14,15 @@ import courseRouter from "./routes/Course/Course.js"
 import sectionrouter from "./routes/Course/Section.js"
 import purchaserouter from "./routes/Course/Purchases.js"
 import filerouter from "./routes/Course/Fileuploads.js"
+import path from "path";
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+console.log(__dirname);
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api/uploads', express.static(path.join(__dirname, './files')));
 
 const server = http.createServer(app);  
 
