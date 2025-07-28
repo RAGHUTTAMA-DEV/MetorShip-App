@@ -13,6 +13,7 @@ import reviewsRoutes from "./routes/Reviews.js"
 import courseRouter from "./routes/Course/Course.js"
 import sectionrouter from "./routes/Course/Section.js"
 import purchaserouter from "./routes/Course/Purchases.js"
+import filerouter from "./routes/Course/Fileuploads.js"
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -41,6 +42,7 @@ app.use("/api/reviews", reviewsRoutes);
 app.use("/api/courses", courseRouter);
 app.use('/api/sections',sectionrouter)
 app.use('/api/purchase',purchaserouter)
+app.use('/api/files',filerouter);
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
