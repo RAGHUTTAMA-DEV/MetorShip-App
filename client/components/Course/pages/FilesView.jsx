@@ -8,6 +8,13 @@ export default function FilesView({courseId,sectionId}){
     const [error,setError]=useState(null);
       
     const fetchFiles = async (courseId,sectionId)=>{
+        // Check if courseId and sectionId are defined
+        if (!courseId || !sectionId) {
+            setError('Course ID or Section ID is missing');
+            setLoading(false);
+            return;
+        }
+        
         try{
             const res = await axios.get(`${ApiUrl}/files/${courseId}/sections/${sectionId}`);
             setFiles(res.data.data);
@@ -24,6 +31,16 @@ export default function FilesView({courseId,sectionId}){
     },[courseId,sectionId]);
 
     const renderFileContent = (file) => {
+        // Check if file.path exists
+        if (!file.path) {
+            return (
+                <div>
+                    <p>File path not available</p>
+                    <p>File: {file.title}</p>
+                </div>
+            );
+        }
+        
         const fileUrl = `${ApiUrl}/uploads/${file.path}`;
         const fileExtension = file.path.split('.').pop().toLowerCase();
         const fileType = file.fileType?.toLowerCase() || fileExtension;

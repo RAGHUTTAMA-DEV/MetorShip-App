@@ -18,7 +18,7 @@ const FileSchema =new mongoose.Schema({
     },
     fileType:{
         type:String,
-        enum:['video','note'],
+        enum:['video','note','pdf'],
         required:true,
     },
     path:String,

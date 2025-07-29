@@ -155,6 +155,7 @@ export async function GetMyCourse(req,res){
     try{ 
         const mentorId =req.userId;
         const courses =await CourseModel.find({instructorId:mentorId});
+        const sections = await SectionModel.find({instructorId:mentorId});
         if(!courses){
              res.status(400).json({
                  message:"Courses not found",
@@ -164,7 +165,9 @@ export async function GetMyCourse(req,res){
         res.status(200).json({
             message:"Courses fetched successfully",
             success:true,
-            data:courses,
+            data:{
+                ...courses,sections
+            },
         })
     }catch(err){
         res.status(500).json({
